@@ -14,20 +14,26 @@
     "lint": "eslint src --ext .ts",
     "test": "vitest run"
   },
-  "keywords": ["mcp", "vitest", "testing", "llm", "ai"],
+  "keywords": [
+    "mcp",
+    "vitest",
+    "testing",
+    "llm",
+    "ai"
+  ],
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^0.4.0"
+    "@modelcontextprotocol/sdk": "^1.17.1"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "typescript": "^5.0.0",
-    "vitest": "^1.0.0",
     "@eslint/js": "^9.0.0",
-    "eslint": "^9.0.0",
+    "@types/node": "^24.2.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
-    "@typescript-eslint/parser": "^8.0.0"
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^3.2.4"
   },
   "engines": {
     "node": ">=18.0.0"
