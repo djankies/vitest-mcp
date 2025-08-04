@@ -22,8 +22,8 @@ export const runTestsTool = {
             },
             format: {
                 type: 'string',
-                enum: ['summary', 'detailed', 'json'],
-                description: 'Output format: "summary" (concise pass/fail counts), "detailed" (includes test names and failure details), "json" (structured machine-readable format). Smart defaults: single file → summary, multiple files or failures → detailed',
+                enum: ['summary', 'detailed'],
+                description: 'Output format: "summary" (simple summary data only), "detailed" (structured information about each failing test and summary of passing tests). Smart defaults: single file → summary, multiple files or failures → detailed',
                 default: 'summary'
             }
         },
@@ -114,7 +114,7 @@ export async function handleRunTests(args) {
             executionTime: rawResult.duration
         };
         // Process the output using the output processor
-        return processTestResult(rawResult, finalFormat, resultContext);
+        return await processTestResult(rawResult, finalFormat, resultContext);
     }
     catch (error) {
         const errorResult = {
@@ -133,13 +133,13 @@ export async function handleRunTests(args) {
             executionTime: errorResult.duration
         };
         // Process error result with detailed format to preserve error information
-        return processTestResult(errorResult, 'detailed', errorContext);
+        return await processTestResult(errorResult, 'detailed', errorContext);
     }
 }
 /**
  * Build the Vitest command array
  */
-async function buildVitestCommand(args, projectRoot, targetPath, format) {
+async function buildVitestCommand(args, projectRoot, targetPath, _format) {
     const command = ['npx', 'vitest', 'run']; // Always use run mode (never watch)
     // Use relative path from project root to target
     const relativePath = relative(projectRoot, targetPath);
@@ -170,6 +170,15 @@ function executeCommand(command, cwd) {
         });
         let stdout = '';
         let stderr = '';
+        // Set a timeout to prevent hanging (reduced to 30 seconds for safety)
+        const timeout = setTimeout(() => {
+            child.kill('SIGTERM');
+            resolve({
+                stdout,
+                stderr: 'Command timed out after 30 seconds. This usually means the command is trying to run too many tests.',
+                exitCode: 124
+            });
+        }, 30000);
         child.stdout?.on('data', (data) => {
             stdout += data.toString();
         });
@@ -192,15 +201,6 @@ function executeCommand(command, cwd) {
                 exitCode: 1
             });
         });
-        // Set a timeout to prevent hanging (reduced to 30 seconds for safety)
-        const timeout = setTimeout(() => {
-            child.kill('SIGTERM');
-            resolve({
-                stdout,
-                stderr: 'Command timed out after 30 seconds. This usually means the command is trying to run too many tests.',
-                exitCode: 124
-            });
-        }, 30000);
     });
 }
 //# sourceMappingURL=run-tests.js.map

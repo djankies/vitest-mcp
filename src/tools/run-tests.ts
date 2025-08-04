@@ -24,8 +24,8 @@ export const runTestsTool: Tool = {
       },
       format: {
         type: 'string',
-        enum: ['summary', 'detailed', 'json'],
-        description: 'Output format: "summary" (concise pass/fail counts), "detailed" (includes test names and failure details), "json" (structured machine-readable format). Smart defaults: single file → summary, multiple files or failures → detailed',
+        enum: ['summary', 'detailed'],
+        description: 'Output format: "summary" (simple summary data only), "detailed" (structured information about each failing test and summary of passing tests). Smart defaults: single file → summary, multiple files or failures → detailed',
         default: 'summary'
       }
     },
@@ -33,7 +33,7 @@ export const runTestsTool: Tool = {
   }
 };
 
-export type TestFormat = 'summary' | 'detailed' | 'json';
+export type TestFormat = 'summary' | 'detailed';
 
 export interface RunTestsArgs {
   target: string;
@@ -76,26 +76,6 @@ export interface TestSummary {
   };
 }
 
-export interface TestFile {
-  path: string;
-  name: string;
-  status: 'passed' | 'failed' | 'skipped';
-  duration: number;
-  tests: TestCase[];
-}
-
-export interface TestCase {
-  name: string;
-  fullName: string;
-  status: 'passed' | 'failed' | 'skipped';
-  duration?: number;
-  error?: {
-    message: string;
-    expected?: string;
-    actual?: string;
-    stack?: string;
-  };
-}
 
 export interface StructuredTestResult {
   status: 'success' | 'failure' | 'error';
@@ -107,11 +87,37 @@ export interface StructuredTestResult {
     duration: number;
     passRate: number;
   };
-  files?: TestFile[];
-  failures?: Array<{
+  // For summary format: just the names of failed tests (no error details) 
+  failedTestNames?: Array<{
     file: string;
-    test: string;
-    error: string;
+    testName: string;
+    fullName: string;
+  }>;
+  // For detailed format: detailed information about each failing test
+  failedTests?: Array<{
+    file: string;
+    testName: string;
+    fullName: string;
+    error: {
+      type: string;
+      message: string;
+      expected?: any;
+      actual?: any;
+      testIntent?: string;
+      codeSnippet?: {
+        file: string;
+        lines: string[];
+      };
+      cleanStack: string[];
+      rawError?: string;
+    };
+    duration?: number;
+  }>;
+  // For detailed format: summary of passed tests by file
+  passedTestsSummary?: Array<{
+    file: string;
+    passedCount: number;
+    totalDuration: number;
   }>;
   coverage?: {
     lines: number;
@@ -130,7 +136,7 @@ export interface ProcessedTestResult extends RunTestsResult {
 }
 
 export interface OutputProcessor {
-  process(result: RunTestsResult, format: TestFormat, context: TestResultContext): ProcessedTestResult;
+  process(result: RunTestsResult, format: TestFormat, context: TestResultContext): Promise<ProcessedTestResult>;
 }
 
 /**
@@ -236,7 +242,7 @@ export async function handleRunTests(args: RunTestsArgs): Promise<ProcessedTestR
     };
     
     // Process the output using the output processor
-    return processTestResult(rawResult, finalFormat, resultContext);
+    return await processTestResult(rawResult, finalFormat, resultContext);
     
   } catch (error) {
     const errorResult: RunTestsResult = {
@@ -257,14 +263,14 @@ export async function handleRunTests(args: RunTestsArgs): Promise<ProcessedTestR
     };
     
     // Process error result with detailed format to preserve error information
-    return processTestResult(errorResult, 'detailed', errorContext);
+    return await processTestResult(errorResult, 'detailed', errorContext);
   }
 }
 
 /**
  * Build the Vitest command array
  */
-async function buildVitestCommand(args: RunTestsArgs, projectRoot: string, targetPath: string, format: TestFormat): Promise<string[]> {
+async function buildVitestCommand(args: RunTestsArgs, projectRoot: string, targetPath: string, _format: TestFormat): Promise<string[]> {
   const command = ['npx', 'vitest', 'run']; // Always use run mode (never watch)
   
   // Use relative path from project root to target
@@ -308,6 +314,16 @@ function executeCommand(command: string[], cwd: string): Promise<{
     let stdout = '';
     let stderr = '';
     
+    // Set a timeout to prevent hanging (reduced to 30 seconds for safety)
+    const timeout = setTimeout(() => {
+      child.kill('SIGTERM');
+      resolve({
+        stdout,
+        stderr: 'Command timed out after 30 seconds. This usually means the command is trying to run too many tests.',
+        exitCode: 124
+      });
+    }, 30000);
+    
     child.stdout?.on('data', (data) => {
       stdout += data.toString();
     });
@@ -333,15 +349,5 @@ function executeCommand(command: string[], cwd: string): Promise<{
         exitCode: 1
       });
     });
-    
-    // Set a timeout to prevent hanging (reduced to 30 seconds for safety)
-    const timeout = setTimeout(() => {
-      child.kill('SIGTERM');
-      resolve({
-        stdout,
-        stderr: 'Command timed out after 30 seconds. This usually means the command is trying to run too many tests.',
-        exitCode: 124
-      });
-    }, 30000);
   });
 }

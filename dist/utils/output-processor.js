@@ -1,168 +1,31 @@
 /**
  * Output processor for Vitest results - transforms raw Vitest output into LLM-optimized formats
  */
+import { readFile } from 'fs/promises';
 /**
  * Main output processor implementation
  */
 export class VitestOutputProcessor {
-    process(result, format, context) {
-        let processedOutput;
-        let summary;
+    async process(result, format, context) {
         // Parse JSON data for all formats since we always use JSON reporter
         const jsonData = this.parseVitestJson(result.stdout);
-        switch (format) {
-            case 'json':
-                const jsonResult = this.processJson(result);
-                processedOutput = jsonResult.output;
-                summary = jsonResult.summary;
-                break;
-            case 'summary':
-                const summaryResult = this.processSummary(result, context);
-                processedOutput = summaryResult.output;
-                summary = summaryResult.summary;
-                break;
-            case 'detailed':
-            default:
-                const detailedResult = this.processDetailed(result, context);
-                processedOutput = detailedResult.output;
-                summary = detailedResult.summary;
-                break;
-        }
+        const summary = jsonData ? this.extractSummaryFromJson(jsonData) : undefined;
+        // Generate structured data from JSON
+        const structured = await this.generateStructuredResult(jsonData, result, summary, format);
         // Update context with actual test count from summary
         const updatedContext = {
             ...context,
             actualTestCount: summary?.totalTests || context.actualTestCount
         };
-        // Generate structured data from JSON
-        const structured = this.generateStructuredResult(jsonData, result, summary);
         return {
             ...result,
-            stdout: processedOutput, // Replace stdout with processed output for LLM consumption
+            stdout: result.stdout, // Keep original stdout
             format,
-            processedOutput,
+            processedOutput: '', // Not used anymore, structured data is in structured property
             summary,
             context: updatedContext,
             structured
         };
-    }
-    /**
-     * JSON format - parse and clean Vitest JSON output
-     */
-    processJson(result) {
-        try {
-            const jsonData = this.parseVitestJson(result.stdout);
-            if (!jsonData) {
-                return { output: result.stdout };
-            }
-            const summary = this.extractSummaryFromJson(jsonData);
-            const cleanedJson = this.cleanJsonForLLM(jsonData);
-            return {
-                output: JSON.stringify(cleanedJson, null, 2),
-                summary
-            };
-        }
-        catch (error) {
-            return {
-                output: `JSON parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}\n\nRaw output:\n${result.stdout}`
-            };
-        }
-    }
-    /**
-     * Summary format - minimal essential info optimized for LLMs
-     */
-    processSummary(result, _context) {
-        // Parse JSON output since we always use JSON reporter
-        const jsonData = this.parseVitestJson(result.stdout);
-        const summary = jsonData ? this.extractSummaryFromJson(jsonData) : undefined;
-        const parts = [];
-        // Success/failure indicator with counts
-        if (!summary) {
-            // Fallback if JSON parsing failed
-            parts.push(result.success ? '✅ Tests passed' : '❌ Tests failed');
-        }
-        else if (result.success) {
-            parts.push(`✅ ${summary.passed} test${summary.passed === 1 ? '' : 's'} passed`);
-        }
-        else {
-            parts.push(`❌ ${summary.failed}/${summary.totalTests} test${summary.totalTests === 1 ? '' : 's'} failed`);
-        }
-        // Add timing if significant
-        if (summary && summary.duration > 1000) {
-            parts.push(`in ${Math.round(summary.duration)}ms`);
-        }
-        let output = parts.join(' ');
-        // Add failure details if present (but keep concise)
-        if (summary && summary.failed > 0 && jsonData) {
-            const failures = this.extractFailureDetailsFromJson(jsonData, true); // concise = true
-            if (failures.length > 0) {
-                output += '\n\nFailed tests:\n' + failures.join('\n');
-            }
-        }
-        // Add stderr if present and relevant
-        if (result.stderr && result.stderr.trim() && !result.success) {
-            const cleanStderr = this.cleanStderr(result.stderr);
-            if (cleanStderr) {
-                output += '\n\nErrors:\n' + cleanStderr;
-            }
-        }
-        return { output, summary };
-    }
-    /**
-     * Detailed format - comprehensive information for debugging
-     */
-    processDetailed(result, _context) {
-        // Parse JSON output since we always use JSON reporter
-        const jsonData = this.parseVitestJson(result.stdout);
-        const summary = jsonData ? this.extractSummaryFromJson(jsonData) : undefined;
-        const parts = [];
-        // Header with overall status
-        if (result.success) {
-            parts.push(`✅ Test execution successful`);
-        }
-        else {
-            parts.push(`❌ Test execution failed`);
-        }
-        // Test statistics
-        const stats = summary ? [
-            `Total: ${summary.totalTests}`,
-            `Passed: ${summary.passed}`,
-            summary.failed > 0 ? `Failed: ${summary.failed}` : null,
-            summary.skipped > 0 ? `Skipped: ${summary.skipped}` : null
-        ].filter(Boolean).join(' | ') : 'Unable to parse test statistics';
-        parts.push(`\nResults: ${stats}`);
-        if (summary && summary.duration > 0) {
-            parts.push(`Duration: ${Math.round(summary.duration)}ms`);
-        }
-        // Coverage information if available
-        if (summary && summary.coverage) {
-            const coverage = summary.coverage;
-            parts.push(`\nCoverage: Lines: ${coverage.lines}% | Functions: ${coverage.functions}% | Branches: ${coverage.branches}% | Statements: ${coverage.statements}%`);
-        }
-        // Test details from JSON
-        if (jsonData) {
-            const testDetails = this.extractTestDetailsFromJson(jsonData);
-            if (testDetails.length > 0) {
-                parts.push('\nTest Details:');
-                parts.push(...testDetails);
-            }
-        }
-        // Failure details if present
-        if (summary && summary.failed > 0 && jsonData) {
-            const failures = this.extractFailureDetailsFromJson(jsonData, false); // concise = false
-            if (failures.length > 0) {
-                parts.push('\nFailure Details:');
-                parts.push(...failures);
-            }
-        }
-        // Add stderr if present
-        if (result.stderr && result.stderr.trim()) {
-            const cleanStderr = this.cleanStderr(result.stderr);
-            if (cleanStderr) {
-                parts.push('\nErrors:');
-                parts.push(cleanStderr);
-            }
-        }
-        return { output: parts.join('\n'), summary };
     }
     /**
      * Parse Vitest JSON output
@@ -200,7 +63,7 @@ export class VitestOutputProcessor {
             }
             return JSON.parse(jsonLine);
         }
-        catch (error) {
+        catch {
             return null;
         }
     }
@@ -446,9 +309,140 @@ export class VitestOutputProcessor {
         };
     }
     /**
+     * Parse error information from Vitest failure messages
+     */
+    async parseError(errorMessage, filePath, _testName, _fullTestName) {
+        const error = {
+            type: 'Error',
+            message: '',
+            cleanStack: [],
+            rawError: errorMessage
+        };
+        // Extract error type and message
+        const lines = errorMessage.split('\n');
+        const firstLine = lines[0].trim();
+        // Parse error type and message
+        if (firstLine.includes('AssertionError:')) {
+            error.type = 'AssertionError';
+            error.message = firstLine.replace('AssertionError:', '').trim();
+        }
+        else if (firstLine.includes('TypeError:')) {
+            error.type = 'TypeError';
+            error.message = firstLine.replace('TypeError:', '').trim();
+        }
+        else if (firstLine.includes('ReferenceError:')) {
+            error.type = 'ReferenceError';
+            error.message = firstLine.replace('ReferenceError:', '').trim();
+        }
+        else if (firstLine.includes('Test timed out')) {
+            error.type = 'TimeoutError';
+            error.message = firstLine;
+        }
+        else if (firstLine.includes('Error:')) {
+            error.type = 'Error';
+            error.message = firstLine.replace('Error:', '').trim();
+        }
+        else {
+            error.message = firstLine;
+        }
+        // Extract expected and actual values for assertion errors
+        if (error.type === 'AssertionError') {
+            // Try different patterns for expected/actual
+            const expectedMatch = errorMessage.match(/Expected[:\s]*(.+?)(?:\n|$)/i) ||
+                errorMessage.match(/- Expected[:\s]*\n[+-]\s*(.+?)(?:\n|$)/);
+            const actualMatch = errorMessage.match(/Received[:\s]*(.+?)(?:\n|$)/i) ||
+                errorMessage.match(/\+ Received[:\s]*\n[+-]\s*(.+?)(?:\n|$)/);
+            if (expectedMatch) {
+                error.expected = this.parseValue(expectedMatch[1].trim());
+            }
+            if (actualMatch) {
+                error.actual = this.parseValue(actualMatch[1].trim());
+            }
+        }
+        // Extract and clean stack trace
+        const stackLines = lines.filter(line => line.trim().startsWith('❯') ||
+            line.trim().match(/^\s*at\s+/));
+        error.cleanStack = stackLines
+            .map(line => line.trim())
+            .filter(line => !line.includes('node_modules') &&
+            !line.includes('vitest') &&
+            !line.includes('test-runner'))
+            .slice(0, 3); // Limit to 3 most relevant stack entries
+        // Extract code snippet if we can find line numbers
+        try {
+            const lineMatch = errorMessage.match(/(\d+):\d+/);
+            if (lineMatch && filePath) {
+                const lineNumber = parseInt(lineMatch[1], 10);
+                const codeSnippet = await this.extractCodeSnippet(filePath, lineNumber);
+                if (codeSnippet) {
+                    error.codeSnippet = codeSnippet;
+                }
+            }
+        }
+        catch {
+            // Code snippet extraction failed, continue without it
+        }
+        return error;
+    }
+    /**
+     * Parse a value string into appropriate type
+     */
+    parseValue(valueStr) {
+        // Remove quotes and try to parse as JSON
+        const cleaned = valueStr.replace(/^['"`]|['"`]$/g, '');
+        // Try to parse numbers
+        const num = Number(cleaned);
+        if (!isNaN(num) && isFinite(num)) {
+            return num;
+        }
+        // Try to parse booleans
+        if (cleaned === 'true')
+            return true;
+        if (cleaned === 'false')
+            return false;
+        if (cleaned === 'null')
+            return null;
+        if (cleaned === 'undefined')
+            return undefined;
+        // Try to parse objects/arrays
+        try {
+            return JSON.parse(cleaned);
+        }
+        catch {
+            return cleaned; // Return as string if all else fails
+        }
+    }
+    /**
+     * Extract code snippet around the failing line
+     */
+    async extractCodeSnippet(filePath, lineNumber) {
+        try {
+            const content = await readFile(filePath, 'utf-8');
+            const lines = content.split('\n');
+            const fileName = filePath.split('/').pop() || filePath;
+            // Get context around the failing line (2 lines before, 2 lines after)
+            const start = Math.max(0, lineNumber - 3);
+            const end = Math.min(lines.length, lineNumber + 2);
+            const snippet = [];
+            for (let i = start; i < end; i++) {
+                const lineNum = i + 1;
+                const isFailingLine = lineNum === lineNumber;
+                const prefix = isFailingLine ? '❌' : '  ';
+                snippet.push(`${lineNum.toString().padStart(2, ' ')}: ${prefix} ${lines[i]}`);
+            }
+            return {
+                file: fileName,
+                lines: snippet
+            };
+        }
+        catch {
+            return null;
+        }
+    }
+    /**
      * Generate structured test result for LLM consumption
      */
-    generateStructuredResult(jsonData, result, summary) {
+    async generateStructuredResult(jsonData, result, summary, format) {
         // If we don't have JSON data, create a basic structured result
         if (!jsonData) {
             return {
@@ -463,54 +457,6 @@ export class VitestOutputProcessor {
                 }
             };
         }
-        // Build structured test files
-        const files = jsonData.testResults?.map(suite => {
-            const fileName = suite.name.split('/').pop() || suite.name;
-            const tests = suite.assertionResults?.map(assertion => {
-                const testCase = {
-                    name: assertion.title,
-                    fullName: assertion.fullName || `${assertion.ancestorTitles.join(' › ')} › ${assertion.title}`,
-                    status: assertion.status,
-                    duration: assertion.duration
-                };
-                // Add error details if test failed
-                if (assertion.status === 'failed' && assertion.failureMessages?.length) {
-                    const errorMessage = assertion.failureMessages[0];
-                    const error = {
-                        message: errorMessage.split('\n')[0] // First line is usually the main error
-                    };
-                    // Try to extract expected/actual from error message
-                    const expectedMatch = errorMessage.match(/Expected[:\s]+(.+?)(?:\n|$)/);
-                    const actualMatch = errorMessage.match(/Received[:\s]+(.+?)(?:\n|$)/);
-                    if (expectedMatch)
-                        error.expected = expectedMatch[1].trim();
-                    if (actualMatch)
-                        error.actual = actualMatch[1].trim();
-                    // Extract stack trace if present
-                    const stackMatch = errorMessage.match(/\n\s+at\s+.+/g);
-                    if (stackMatch) {
-                        error.stack = stackMatch.slice(0, 3).join('\n'); // Limit stack trace
-                    }
-                    testCase.error = error;
-                }
-                return testCase;
-            }) || [];
-            return {
-                path: suite.name,
-                name: fileName,
-                status: suite.status,
-                duration: suite.endTime - suite.startTime,
-                tests
-            };
-        }) || [];
-        // Build failure summary for quick access
-        const failures = files.flatMap(file => file.tests
-            .filter(test => test.status === 'failed')
-            .map(test => ({
-            file: file.name,
-            test: test.name,
-            error: test.error?.message || 'Test failed'
-        })));
         // Calculate pass rate
         const passRate = jsonData.numTotalTests > 0
             ? (jsonData.numPassedTests / jsonData.numTotalTests) * 100
@@ -526,17 +472,89 @@ export class VitestOutputProcessor {
                 passRate: Math.round(passRate * 100) / 100 // Round to 2 decimal places
             }
         };
-        // Add files if we have test details
-        if (files.length > 0) {
-            structured.files = files;
+        // For summary format: include summary data and failing test names
+        if (format === 'summary') {
+            // Include basic information about failed tests (names only, no detailed error info)
+            if (jsonData.numFailedTests > 0) {
+                const failedTestNames = [];
+                for (const suite of jsonData.testResults || []) {
+                    const fileName = suite.name.split('/').pop() || suite.name;
+                    for (const assertion of suite.assertionResults || []) {
+                        if (assertion.status === 'failed') {
+                            failedTestNames.push({
+                                file: fileName,
+                                testName: assertion.title,
+                                fullName: assertion.fullName || `${assertion.ancestorTitles.join(' › ')} › ${assertion.title}`
+                            });
+                        }
+                    }
+                }
+                if (failedTestNames.length > 0) {
+                    structured.failedTestNames = failedTestNames;
+                }
+            }
+            // Add coverage if available
+            if (summary?.coverage) {
+                structured.coverage = summary.coverage;
+            }
+            return structured;
         }
-        // Add failures if there are any
-        if (failures.length > 0) {
-            structured.failures = failures;
-        }
-        // Add coverage if available
-        if (summary?.coverage) {
-            structured.coverage = summary.coverage;
+        // For detailed format: include detailed information about failing tests and summary of passing tests
+        if (format === 'detailed') {
+            // Build detailed information for failed tests only
+            const failedTests = [];
+            // Summary of passed tests by file
+            const passedTestsSummary = [];
+            for (const suite of jsonData.testResults || []) {
+                const fileName = suite.name.split('/').pop() || suite.name;
+                let passedCount = 0;
+                let totalDuration = 0;
+                for (const assertion of suite.assertionResults || []) {
+                    if (assertion.status === 'passed') {
+                        passedCount++;
+                        totalDuration += assertion.duration || 0;
+                    }
+                    else if (assertion.status === 'failed') {
+                        const failedTest = {
+                            file: fileName,
+                            testName: assertion.title,
+                            fullName: assertion.fullName || `${assertion.ancestorTitles.join(' › ')} › ${assertion.title}`,
+                            duration: assertion.duration,
+                            error: {
+                                type: 'UnknownError',
+                                message: 'Test failed',
+                                cleanStack: []
+                            }
+                        };
+                        // Add parsed error information if available
+                        if (assertion.failureMessages?.length) {
+                            const errorMessage = assertion.failureMessages[0];
+                            const parsedError = await this.parseError(errorMessage, suite.name, assertion.title, assertion.fullName || `${assertion.ancestorTitles.join(' › ')} › ${assertion.title}`);
+                            failedTest.error = parsedError;
+                        }
+                        failedTests.push(failedTest);
+                    }
+                }
+                if (passedCount > 0) {
+                    passedTestsSummary.push({
+                        file: fileName,
+                        passedCount,
+                        totalDuration
+                    });
+                }
+            }
+            // Add detailed failure information
+            if (failedTests.length > 0) {
+                structured.failedTests = failedTests;
+            }
+            // Add passed tests summary
+            if (passedTestsSummary.length > 0) {
+                structured.passedTestsSummary = passedTestsSummary;
+            }
+            // Add coverage if available
+            if (summary?.coverage) {
+                structured.coverage = summary.coverage;
+            }
         }
         return structured;
     }

@@ -3,7 +3,7 @@ import { Tool } from '@modelcontextprotocol/sdk/types.js';
  * Tool for running Vitest commands safely
  */
 export declare const runTestsTool: Tool;
-export type TestFormat = 'summary' | 'detailed' | 'json';
+export type TestFormat = 'summary' | 'detailed';
 export interface RunTestsArgs {
     target: string;
     coverage?: boolean;
@@ -40,25 +40,6 @@ export interface TestSummary {
         statements: number;
     };
 }
-export interface TestFile {
-    path: string;
-    name: string;
-    status: 'passed' | 'failed' | 'skipped';
-    duration: number;
-    tests: TestCase[];
-}
-export interface TestCase {
-    name: string;
-    fullName: string;
-    status: 'passed' | 'failed' | 'skipped';
-    duration?: number;
-    error?: {
-        message: string;
-        expected?: string;
-        actual?: string;
-        stack?: string;
-    };
-}
 export interface StructuredTestResult {
     status: 'success' | 'failure' | 'error';
     summary: {
@@ -69,11 +50,34 @@ export interface StructuredTestResult {
         duration: number;
         passRate: number;
     };
-    files?: TestFile[];
-    failures?: Array<{
+    failedTestNames?: Array<{
         file: string;
-        test: string;
-        error: string;
+        testName: string;
+        fullName: string;
+    }>;
+    failedTests?: Array<{
+        file: string;
+        testName: string;
+        fullName: string;
+        error: {
+            type: string;
+            message: string;
+            expected?: any;
+            actual?: any;
+            testIntent?: string;
+            codeSnippet?: {
+                file: string;
+                lines: string[];
+            };
+            cleanStack: string[];
+            rawError?: string;
+        };
+        duration?: number;
+    }>;
+    passedTestsSummary?: Array<{
+        file: string;
+        passedCount: number;
+        totalDuration: number;
     }>;
     coverage?: {
         lines: number;
@@ -90,7 +94,7 @@ export interface ProcessedTestResult extends RunTestsResult {
     structured: StructuredTestResult;
 }
 export interface OutputProcessor {
-    process(result: RunTestsResult, format: TestFormat, context: TestResultContext): ProcessedTestResult;
+    process(result: RunTestsResult, format: TestFormat, context: TestResultContext): Promise<ProcessedTestResult>;
 }
 /**
  * Determine the optimal format based on context and user preference

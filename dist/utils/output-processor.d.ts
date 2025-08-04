@@ -6,19 +6,7 @@ import { RunTestsResult, ProcessedTestResult, TestFormat, TestResultContext, Out
  * Main output processor implementation
  */
 export declare class VitestOutputProcessor implements OutputProcessor {
-    process(result: RunTestsResult, format: TestFormat, context: TestResultContext): ProcessedTestResult;
-    /**
-     * JSON format - parse and clean Vitest JSON output
-     */
-    private processJson;
-    /**
-     * Summary format - minimal essential info optimized for LLMs
-     */
-    private processSummary;
-    /**
-     * Detailed format - comprehensive information for debugging
-     */
-    private processDetailed;
+    process(result: RunTestsResult, format: TestFormat, context: TestResultContext): Promise<ProcessedTestResult>;
     /**
      * Parse Vitest JSON output
      */
@@ -60,6 +48,18 @@ export declare class VitestOutputProcessor implements OutputProcessor {
      */
     private cleanJsonForLLM;
     /**
+     * Parse error information from Vitest failure messages
+     */
+    private parseError;
+    /**
+     * Parse a value string into appropriate type
+     */
+    private parseValue;
+    /**
+     * Extract code snippet around the failing line
+     */
+    private extractCodeSnippet;
+    /**
      * Generate structured test result for LLM consumption
      */
     private generateStructuredResult;
@@ -71,5 +71,5 @@ export declare const outputProcessor: VitestOutputProcessor;
 /**
  * Convenience function for processing test results
  */
-export declare function processTestResult(result: RunTestsResult, format: TestFormat, context: TestResultContext): ProcessedTestResult;
+export declare function processTestResult(result: RunTestsResult, format: TestFormat, context: TestResultContext): Promise<ProcessedTestResult>;
 //# sourceMappingURL=output-processor.d.ts.map
