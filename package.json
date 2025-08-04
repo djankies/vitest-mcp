@@ -1,0 +1,35 @@
+{
+  "name": "vitest-mcp-server",
+  "version": "1.0.0",
+  "description": "A basic MCP server providing guardrails for Vitest testing commands",
+  "main": "dist/index.js",
+  "type": "module",
+  "bin": {
+    "vitest-mcp-server": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "lint": "eslint src --ext .ts",
+    "test": "vitest run"
+  },
+  "keywords": ["mcp", "vitest", "testing", "llm", "ai"],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0",
+    "@eslint/js": "^9.0.0",
+    "eslint": "^9.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
