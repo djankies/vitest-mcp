@@ -57,6 +57,12 @@ export interface VitestMCPConfig {
       branches?: number;
       statements?: number;
     };
+    
+    /**
+     * Patterns to exclude from coverage analysis
+     * Default includes Storybook files, e2e tests, and mock directories
+     */
+    exclude?: string[];
   };
 
   /**

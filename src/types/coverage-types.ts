@@ -90,6 +90,7 @@ export interface AnalyzeCoverageArgs {
   includeDetails?: boolean;
   format?: 'summary' | 'detailed';
   thresholds?: CoverageThreshold;
+  exclude?: string[];
 }
 
 interface StatementMapping {

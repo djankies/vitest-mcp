@@ -23,6 +23,15 @@ const DEFAULT_CONFIG: ResolvedVitestMCPConfig = {
       branches: 80,
       statements: 80,
     },
+    exclude: [
+      '**/*.stories.*',
+      '**/*.story.*',
+      '**/e2e/**',
+      '**/*.e2e.*',
+      '**/test-utils/**',
+      '**/mocks/**',
+      '**/__mocks__/**'
+    ],
   },
   discovery: {
     testPatterns: ['**/*.{test,spec}.{js,ts,jsx,tsx}'],

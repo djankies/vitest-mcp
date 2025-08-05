@@ -55,6 +55,14 @@ export const analyzeCoverageTool: Tool = {
           statements: { type: 'number', minimum: 0, maximum: 100 }
         },
         additionalProperties: false
+      },
+      exclude: {
+        type: 'array',
+        description: 'Patterns to exclude from coverage (e.g., ["**/*.stories.*", "**/*.test.*", "**/e2e/**"])',
+        items: {
+          type: 'string'
+        },
+        default: []
       }
     },
     required: ['target']
@@ -95,6 +103,7 @@ export async function handleAnalyzeCoverage(args: AnalyzeCoverageArgs): Promise<
     const format = args.format ?? config.coverageDefaults.format;
     const includeDetails = args.includeDetails ?? config.coverageDefaults.includeDetails;
     const thresholds = args.thresholds ?? config.coverageDefaults.thresholds;
+    const exclude = args.exclude ?? config.coverageDefaults.exclude ?? [];
     
     // Get project root from the project context (must be set first)
     let projectRoot: string;
@@ -140,7 +149,7 @@ export async function handleAnalyzeCoverage(args: AnalyzeCoverageArgs): Promise<
     
     // Execute coverage analysis with resolved config values
     const coverageResult = await executeCoverageAnalysis(
-      { ...args, threshold, format, includeDetails, thresholds },
+      { ...args, threshold, format, includeDetails, thresholds, exclude },
       projectRoot, 
       targetPath
     );
@@ -302,6 +311,21 @@ function transformCoverageData(rawFiles: Record<string, CoverageFileData>, targe
       continue;
     }
     
+    // Skip Storybook files
+    if (filePath.includes('.stories.') || filePath.includes('.story.')) {
+      continue;
+    }
+    
+    // Skip e2e test files
+    if (filePath.includes('/e2e/') || filePath.includes('.e2e.')) {
+      continue;
+    }
+    
+    // Skip test utility and mock files
+    if (filePath.includes('/test-utils/') || filePath.includes('/mocks/') || filePath.includes('/__mocks__/')) {
+      continue;
+    }
+    
     // Skip non-source files (config files, etc.)
     if (!filePath.includes('/src/') && !filePath.endsWith('.ts') && !filePath.endsWith('.js')) {
       continue;
@@ -427,6 +451,13 @@ async function buildCoverageCommand(
   
   // Enable coverage
   command.push('--coverage');
+  
+  // Add exclude patterns if provided
+  if (args.exclude && args.exclude.length > 0) {
+    for (const pattern of args.exclude) {
+      command.push(`--coverage.exclude=${pattern}`);
+    }
+  }
   
   // Use JSON reporter for structured output
   command.push('--reporter=json');

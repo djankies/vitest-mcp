@@ -135,9 +135,15 @@ Execute tests with AI-optimized output.
 ```javascript
 run_tests({ 
   target: "./src/components", 
-  format: "detailed" // or "summary"
+  format: "detailed", // or "summary"
+  project: "client" // optional: specify Vitest project (for monorepos)
 })
 ```
+
+**Parameters:**
+- `target` (required): File path or directory to test
+- `format` (optional): Output format - "summary" or "detailed"
+- `project` (optional): Name of the Vitest project (as defined in vitest.workspace or vitest.config)
 
 ### `analyze_coverage`
 
@@ -147,9 +153,25 @@ Analyze test coverage with gap insights.
 analyze_coverage({
   target: "./src/api",
   threshold: 80,
-  format: "detailed"
+  format: "detailed",
+  exclude: ["**/*.stories.*", "**/e2e/**"]  // Optional: exclude patterns
 })
 ```
+
+**Parameters:**
+- `target` (required): File path or directory to analyze
+- `threshold` (optional): Coverage threshold percentage (default: 80)
+- `format` (optional): "summary" or "detailed" output
+- `exclude` (optional): Array of patterns to exclude from coverage (e.g., Storybook files)
+
+Default excludes automatically applied:
+- `**/*.stories.*` - Storybook story files
+- `**/*.story.*` - Alternative Storybook naming
+- `**/e2e/**` - End-to-end test directories
+- `**/*.e2e.*` - E2E test files
+- `**/test-utils/**` - Test utility directories
+- `**/mocks/**` - Mock directories
+- `**/__mocks__/**` - Jest-style mock directories
 
 ## Multi-Repository Workflow
 
@@ -200,6 +222,29 @@ chmod +x .claude/vitest-hook.sh
 }
 ```
 
+## Monorepo Support
+
+The `run_tests` tool supports Vitest projects in monorepo setups through the `project` parameter:
+
+```javascript
+// Run tests for a specific project in a monorepo
+run_tests({
+  target: "./packages/client/src",
+  project: "client"  // Matches project name in vitest.workspace.ts
+})
+
+// Run tests for another project
+run_tests({
+  target: "./packages/api/src", 
+  project: "api"
+})
+```
+
+This works with:
+- Vitest workspace configurations (`vitest.workspace.ts`)
+- Projects defined in `vitest.config.ts` with the `projects` option
+- Yarn/npm/pnpm workspace monorepos
+
 ## Configuration Options
 
 ### Project Configuration (.vitest-mcp.json)
@@ -217,7 +262,11 @@ Create a `.vitest-mcp.json` file in your home directory or project root:
   },
   "coverageDefaults": {
     "threshold": 80,
-    "format": "detailed"
+    "format": "detailed",
+    "exclude": [
+      "**/*.stories.*",
+      "**/e2e/**"
+    ]
   }
 }
 ```

@@ -25,6 +25,10 @@ export const runTestsTool: Tool = {
         enum: ['summary', 'detailed'],
         description: 'Output format: "summary" (simple summary data only), "detailed" (structured information about each failing test and summary of passing tests). Smart defaults: single file → summary, multiple files or failures → detailed',
         default: 'summary'
+      },
+      project: {
+        type: 'string',
+        description: 'Name of the Vitest project to run tests for (as defined in vitest.workspace or vitest.config). Useful for monorepos or multi-project setups.'
       }
     },
     required: ['target']
@@ -36,6 +40,7 @@ export type TestFormat = 'summary' | 'detailed';
 export interface RunTestsArgs {
   target: string;
   format?: TestFormat;
+  project?: string;
 }
 
 export interface RunTestsResult {
@@ -264,6 +269,11 @@ export async function handleRunTests(args: RunTestsArgs): Promise<ProcessedTestR
  */
 async function buildVitestCommand(args: RunTestsArgs, projectRoot: string, targetPath: string, _format: TestFormat): Promise<string[]> {
   const command = ['npx', 'vitest', 'run']; // Always use run mode (never watch)
+  
+  // Add project parameter if specified
+  if (args.project) {
+    command.push('--project', args.project);
+  }
   
   // Use relative path from project root to target
   const relativePath = relative(projectRoot, targetPath);
