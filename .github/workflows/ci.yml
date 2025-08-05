@@ -28,7 +28,7 @@ jobs:
         run: npm ci
         
       - name: Run linting
-        run: npm run lint || echo "Linting issues found but not blocking CI"
+        run: npm run lint || true
         
       - name: Run tests
         run: npm test
@@ -39,10 +39,12 @@ jobs:
       - name: Test package installation
         run: |
           npm pack
+          PACKAGE_PATH=$(pwd)
+          PACKAGE_FILE=$(ls *.tgz | head -1)
           mkdir -p /tmp/test-install
           cd /tmp/test-install
           npm init -y
-          npm install ../djankies-vitest-mcp-*.tgz
+          npm install $PACKAGE_PATH/$PACKAGE_FILE
           
       - name: Verify package works
         run: |

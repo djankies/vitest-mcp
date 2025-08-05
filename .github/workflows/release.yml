@@ -59,7 +59,7 @@ jobs:
         run: npm test
         
       - name: Run linting
-        run: npm run lint || echo "Linting issues found but not blocking release"
+        run: npm run lint || true
         
       - name: Build package
         run: npm run build
