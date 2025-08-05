@@ -4,6 +4,8 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema, ListResourcesRequestSchema, ReadResourceRequestSchema, } from '@modelcontextprotocol/sdk/types.js';
 import { listTestsTool, handleListTests } from './tools/list-tests.js';
 import { runTestsTool, handleRunTests } from './tools/run-tests.js';
+import { analyzeCoverageTool, handleAnalyzeCoverage } from './tools/analyze-coverage.js';
+import { getConfig } from './config/config-loader.js';
 /**
  * Basic Vitest MCP Server
  * Provides simple guardrails for running Vitest commands via LLMs
@@ -12,8 +14,8 @@ class VitestMCPServer {
     server;
     constructor() {
         this.server = new Server({
-            name: 'vitest-mcp-server',
-            version: '1.0.0',
+            name: '@djankies/vitest-mcp',
+            version: '0.1.0',
         }, {
             capabilities: {
                 tools: {},
@@ -26,7 +28,7 @@ class VitestMCPServer {
         // List available tools
         this.server.setRequestHandler(ListToolsRequestSchema, async () => {
             return {
-                tools: [listTestsTool, runTestsTool],
+                tools: [listTestsTool, runTestsTool, analyzeCoverageTool],
             };
         });
         // Handle tool calls
@@ -46,16 +48,31 @@ class VitestMCPServer {
                     }
                     case 'run_tests': {
                         const runResult = await handleRunTests((request.params.arguments || {}));
-                        // Return structured response with structured output
+                        // Return just the structured data with minimal wrapper
                         const responseData = {
                             success: runResult.success,
                             format: runResult.format,
-                            output: runResult.structured, // Use structured data instead of string
-                            summary: runResult.summary,
                             command: runResult.command,
                             duration: runResult.duration,
-                            context: runResult.context
+                            ...runResult.structured // Spread the structured result directly
                         };
+                        return {
+                            content: [
+                                {
+                                    type: 'text',
+                                    text: JSON.stringify(responseData, null, 2),
+                                },
+                            ],
+                        };
+                    }
+                    case 'analyze_coverage': {
+                        const args = request.params.arguments || {};
+                        if (!args.target || typeof args.target !== 'string') {
+                            throw new Error('target parameter is required for analyze_coverage');
+                        }
+                        const coverageResult = await handleAnalyzeCoverage(args);
+                        // Return structured response with coverage analysis
+                        const responseData = coverageResult;
                         return {
                             content: [
                                 {
@@ -106,6 +123,39 @@ class VitestMCPServer {
 ## Overview
 This MCP server provides tools for interacting with Vitest, a fast unit testing framework for JavaScript/TypeScript projects.
 
+## ⚠️ Coverage Setup Required
+Before using coverage analysis features, ensure your project is properly configured:
+
+### 1. Install Coverage Provider
+\`\`\`bash
+npm install --save-dev @vitest/coverage-v8
+# OR for c8 provider:
+# npm install --save-dev @vitest/coverage-c8
+\`\`\`
+
+### 2. Configure vitest.config.ts
+\`\`\`typescript
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    environment: 'node',
+    coverage: {
+      provider: 'v8', // or 'c8'
+      reporter: ['text', 'json', 'html'],
+      reportsDirectory: './coverage',
+      exclude: [
+        'node_modules/',
+        'dist/',
+        'coverage/',
+        '**/*.test.ts',
+        '**/*.spec.ts'
+      ]
+    }
+  },
+});
+\`\`\`
+
 ## Available Tools
 
 ### 1. list_tests
@@ -124,44 +174,82 @@ list_tests({ directory: "./src", pattern: "**/*.spec.ts" })
 Runs Vitest tests with specified options.
 
 **Parameters:**
-- \`path\` (optional): Specific test file or directory to run. If not provided, runs all tests.
-- \`watch\` (optional): Run in watch mode. Defaults to false.
+- \`target\` (required): Specific test file or directory to run.
 - \`format\` (optional): Output format ('summary', 'detailed'). Defaults to 'summary'.
-- \`coverage\` (optional): Enable coverage reporting. Defaults to false.
-- \`updateSnapshots\` (optional): Update snapshots. Defaults to false.
-- \`bail\` (optional): Stop after first test failure. Defaults to false.
-- \`timeout\` (optional): Custom timeout in milliseconds. Defaults to 30000.
 
 **Example Usage:**
 \`\`\`
 run_tests({ 
   target: "./src/components", 
-  format: "detailed",
-  coverage: true 
+  format: "detailed"
 })
 \`\`\`
 
+### 3. analyze_coverage ✨ NEW
+Runs comprehensive coverage analysis with insights about gaps and improvement opportunities.
+
+**Parameters:**
+- \`target\` (required): File path or directory to analyze coverage for.
+- \`threshold\` (optional): Minimum coverage threshold percentage (default: 80).
+- \`includeDetails\` (optional): Include detailed line-by-line coverage analysis (default: false).
+- \`format\` (optional): Output format ('summary', 'detailed'). Defaults to 'summary'.
+- \`thresholds\` (optional): Custom coverage thresholds for different metrics.
+
+**Example Usage:**
+\`\`\`
+analyze_coverage({
+  target: "./src/components",
+  format: "detailed",
+  threshold: 80,
+  includeDetails: true
+})
+\`\`\`
+
+**Format Options:**
+- **summary**: Basic coverage metrics
+- **detailed**: Comprehensive analysis with file-level details and gaps
+
 ## Best Practices
 
+### Testing Workflow
 1. **Start with list_tests**: Before running tests, use \`list_tests\` to understand the test structure.
-
 2. **Use specific paths**: When possible, run tests for specific files or directories to save time.
-
 3. **Format selection**: Use \`format: "summary"\` for simple pass/fail counts, \`format: "detailed"\` for comprehensive failure analysis.
 
-4. **Timeout consideration**: Increase timeout for integration tests or tests that involve network requests.
+### Coverage Analysis Workflow
+1. **Setup first**: Ensure coverage provider is installed and configured before using coverage tools.
+2. **Start with analyze_coverage**: Use \`analyze_coverage\` with \`format: "detailed"\` for comprehensive insights.
+3. **Target specific areas**: Focus coverage analysis on specific directories or files rather than entire projects.
+4. **Set realistic thresholds**: Start with 70% threshold and gradually increase as coverage improves.
+5. **Use includeDetails for debugging**: Enable \`includeDetails: true\` when you need to understand specific coverage gaps.
+
+### Coverage Troubleshooting
+- **"Coverage provider not found"**: Run \`npm install --save-dev @vitest/coverage-v8\`
+- **"Coverage thresholds not met"**: Lower the threshold or add more tests to meet the requirements
+- **"No coverage data"**: Ensure vitest.config.ts has coverage configuration and reporter includes 'json'
+- **"Analysis timeout"**: Use more specific target paths or increase analysis timeout
 
 ## Error Handling
 
+### Test Execution Errors
 - If tests fail, the tool will return detailed error information including:
   - Failed test names and their error messages
   - File paths where failures occurred
   - Stack traces for debugging
 
-- Common issues:
-  - "No test files found": Check your path and pattern parameters
-  - "Command failed": Ensure Vitest is installed in the project
-  - Timeout errors: Increase the timeout parameter for slower tests
+### Coverage Analysis Errors
+- Coverage analysis failures include:
+  - Specific threshold violations with current vs. required percentages
+  - Missing coverage provider installation
+  - Configuration issues with vitest.config.ts
+  - Actionable recommendations to resolve issues
+
+### Common Issues
+- **"No test files found"**: Check your path and pattern parameters
+- **"Command failed"**: Ensure Vitest is installed in the project
+- **"Coverage provider missing"**: Install @vitest/coverage-v8 or @vitest/coverage-c8
+- **"Threshold violations"**: Either lower thresholds or add more tests to improve coverage
+- **Timeout errors**: Increase the timeout parameter for slower tests or coverage analysis
 `;
                 return {
                     contents: [
@@ -177,10 +265,20 @@ run_tests({
         });
     }
     async run() {
+        // Get CLI arguments (skip node and script path)
+        const cliArgs = process.argv.slice(2);
+        // Load config with CLI args
+        const config = await getConfig(cliArgs);
         const transport = new StdioServerTransport();
         await this.server.connect(transport);
         // Log server start to stderr (so it doesn't interfere with MCP protocol)
         console.error('Vitest MCP Server started');
+        if (config.server.verbose || process.env.VITEST_MCP_DEBUG) {
+            console.error('Configuration loaded:', JSON.stringify(config, null, 2));
+            if (cliArgs.length > 0) {
+                console.error('CLI arguments:', cliArgs);
+            }
+        }
     }
 }
 // Start the server

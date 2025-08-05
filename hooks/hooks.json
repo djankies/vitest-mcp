@@ -1,0 +1,133 @@
+{
+  "bashToolHooks": [
+    {
+      "name": "vitest-mcp-interceptor",
+      "description": "Intercepts Vitest commands and redirects to MCP server for better AI integration",
+      "patterns": [
+        "^(npx )?vitest run\\b",
+        "^(npx )?vitest\\s+run\\b",
+        "^(npx )?vitest\\b(?!\\s+--version|\\s+--help)"
+      ],
+      "action": {
+        "type": "redirect",
+        "target": "mcp_tool",
+        "toolName": "run_tests"
+      },
+      "parameterMapping": {
+        "extractors": [
+          {
+            "pattern": "(?:^(?:npx )?vitest(?:\\s+run)?\\s+)([^\\s-]+(?:\\s+[^\\s-]+)*)",
+            "parameterName": "target",
+            "defaultValue": "."
+          },
+          {
+            "pattern": "--reporter=([^\\s]+)",
+            "parameterName": "format",
+            "transform": {
+              "json": "detailed",
+              "verbose": "detailed",
+              "default": "summary"
+            }
+          },
+          {
+            "pattern": "--coverage\\b",
+            "parameterName": "_useCoverage",
+            "value": true,
+            "action": "suggest_alternative_tool",
+            "alternativeTool": "analyze_coverage",
+            "message": "Detected --coverage flag. Consider using analyze_coverage tool for better coverage analysis."
+          }
+        ]
+      },
+      "conditions": [
+        {
+          "type": "project_has_file",
+          "files": ["vitest.config.ts", "vitest.config.js", "package.json"]
+        },
+        {
+          "type": "not_pattern",
+          "pattern": "--watch\\b|--ui\\b|--init\\b"
+        }
+      ],
+      "messages": {
+        "intercepting": "🔄 Intercepting Vitest command and using MCP server for better AI integration...",
+        "success": "✅ Executed via Vitest MCP server with enhanced output formatting",
+        "fallback": "ℹ️ Falling back to direct Vitest execution"
+      },
+      "fallbackBehavior": "execute_original"
+    },
+    {
+      "name": "vitest-coverage-interceptor", 
+      "description": "Intercepts Vitest coverage commands and redirects to coverage analysis tool",
+      "patterns": [
+        "^(npx )?vitest\\s+run\\s+.*--coverage\\b",
+        "^(npx )?vitest\\s+.*--coverage\\b"
+      ],
+      "action": {
+        "type": "redirect",
+        "target": "mcp_tool", 
+        "toolName": "analyze_coverage"
+      },
+      "parameterMapping": {
+        "extractors": [
+          {
+            "pattern": "(?:^(?:npx )?vitest(?:\\s+run)?\\s+)([^\\s-]+(?:\\s+[^\\s-]+)*)",
+            "parameterName": "target",
+            "defaultValue": "."
+          },
+          {
+            "pattern": "--coverage\\.thresholds\\.lines=(\\d+)",
+            "parameterName": "threshold",
+            "transform": "number"
+          },
+          {
+            "pattern": "--reporter=([^\\s]+)",
+            "parameterName": "format",
+            "transform": {
+              "json": "detailed",
+              "verbose": "detailed", 
+              "default": "summary"
+            }
+          }
+        ]
+      },
+      "conditions": [
+        {
+          "type": "project_has_file",
+          "files": ["vitest.config.ts", "vitest.config.js"]
+        }
+      ],
+      "messages": {
+        "intercepting": "🔄 Intercepting Vitest coverage command and using analyze_coverage tool...",
+        "success": "✅ Coverage analysis completed via MCP server",
+        "fallback": "ℹ️ Falling back to direct Vitest execution"
+      },
+      "fallbackBehavior": "execute_original"
+    },
+    {
+      "name": "vitest-list-interceptor",
+      "description": "Suggests using list_tests tool for test discovery commands",
+      "patterns": [
+        "find.*\\.test\\.",
+        "find.*\\.spec\\.",
+        "ls.*test",
+        "grep.*test.*\\.ts"
+      ],
+      "action": {
+        "type": "suggest",
+        "target": "mcp_tool",
+        "toolName": "list_tests"
+      },
+      "conditions": [
+        {
+          "type": "project_has_file", 
+          "files": ["vitest.config.ts", "vitest.config.js", "package.json"]
+        }
+      ],
+      "messages": {
+        "suggestion": "💡 Consider using the list_tests MCP tool for better test file discovery: list_tests({directory: \".\"})"
+      },
+      "fallbackBehavior": "execute_original"
+    }
+  ]
+}

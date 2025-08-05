@@ -2,6 +2,8 @@ import { spawn } from 'child_process';
 import { fileExists, findProjectRoot, isDirectory as isDirectoryPath } from '../utils/file-utils.js';
 import { processTestResult } from '../utils/output-processor.js';
 import { resolve, relative } from 'path';
+import { getConfig } from '../config/config-loader.js';
+import { checkAllVersions, generateVersionReport } from '../utils/version-checker.js';
 /**
  * Tool for running Vitest commands safely
  */
@@ -14,11 +16,6 @@ export const runTestsTool = {
             target: {
                 type: 'string',
                 description: 'File path or directory to test (required to prevent running all tests)'
-            },
-            coverage: {
-                type: 'boolean',
-                description: 'Enable coverage reporting',
-                default: false
             },
             format: {
                 type: 'string',
@@ -33,11 +30,13 @@ export const runTestsTool = {
 /**
  * Determine the optimal format based on context and user preference
  */
-export function determineFormat(args, context, hasFailures) {
+export async function determineFormat(args, context, hasFailures) {
     // User explicitly specified format takes precedence
     if (args.format) {
         return args.format;
     }
+    // Get config defaults
+    const config = await getConfig();
     // Smart defaults logic
     // If we know there are failures, always use detailed for better debugging
     if (hasFailures === true) {
@@ -47,8 +46,8 @@ export function determineFormat(args, context, hasFailures) {
     if (context.isMultiFile || context.targetType === 'directory') {
         return 'detailed';
     }
-    // Single file with no known failures gets summary
-    return 'summary';
+    // Single file with no known failures uses config default
+    return config.testDefaults.format;
 }
 /**
  * Create execution context from target path
@@ -77,6 +76,12 @@ export async function handleRunTests(args) {
         const serverDir = new URL('../..', import.meta.url).pathname;
         const projectRoot = await findProjectRoot(serverDir);
         const targetPath = resolve(projectRoot, args.target);
+        // Check Vitest version compatibility
+        const versionCheck = await checkAllVersions(projectRoot);
+        if (versionCheck.errors.length > 0) {
+            const report = generateVersionReport(versionCheck);
+            throw new Error(`Version compatibility issues found:\n\n${report}`);
+        }
         // Validate target exists
         if (!(await fileExists(targetPath))) {
             throw new Error(`Target does not exist: ${args.target} (resolved to: ${targetPath})`);
@@ -88,7 +93,7 @@ export async function handleRunTests(args) {
         // Create execution context for smart defaults
         const executionContext = await createExecutionContext(targetPath);
         // Determine format (pre-execution, without failure info)
-        const format = determineFormat(args, executionContext);
+        const format = await determineFormat(args, executionContext);
         // Build Vitest command with format-specific options
         const command = await buildVitestCommand(args, projectRoot, targetPath, format);
         // Execute the command
@@ -96,7 +101,7 @@ export async function handleRunTests(args) {
         // Create result context (post-execution, with failure info)
         const hasFailures = result.exitCode !== 0;
         // Re-evaluate format now that we know about failures
-        const finalFormat = determineFormat(args, executionContext, hasFailures);
+        const finalFormat = await determineFormat(args, executionContext, hasFailures);
         // Create raw result object
         const rawResult = {
             command: command.join(' '),
@@ -140,6 +145,7 @@ export async function handleRunTests(args) {
  * Build the Vitest command array
  */
 async function buildVitestCommand(args, projectRoot, targetPath, _format) {
+    const config = await getConfig();
     const command = ['npx', 'vitest', 'run']; // Always use run mode (never watch)
     // Use relative path from project root to target
     const relativePath = relative(projectRoot, targetPath);
@@ -148,10 +154,6 @@ async function buildVitestCommand(args, projectRoot, targetPath, _format) {
         throw new Error('Cannot target project root. Please specify a specific file or subdirectory.');
     }
     command.push(relativePath);
-    // Add coverage flag if requested
-    if (args.coverage) {
-        command.push('--coverage');
-    }
     // Always use JSON reporter internally for consistent parsing
     // Even 'raw' format will be processed from JSON for LLM consumption
     command.push('--reporter=json');
@@ -160,7 +162,8 @@ async function buildVitestCommand(args, projectRoot, targetPath, _format) {
 /**
  * Execute a command and return the result
  */
-function executeCommand(command, cwd) {
+async function executeCommand(command, cwd) {
+    const config = await getConfig();
     return new Promise((resolve) => {
         const [cmd, ...args] = command;
         const child = spawn(cmd, args, {
@@ -170,15 +173,16 @@ function executeCommand(command, cwd) {
         });
         let stdout = '';
         let stderr = '';
-        // Set a timeout to prevent hanging (reduced to 30 seconds for safety)
+        // Set a timeout to prevent hanging (configurable)
+        const timeoutMs = config.testDefaults.timeout;
         const timeout = setTimeout(() => {
             child.kill('SIGTERM');
             resolve({
                 stdout,
-                stderr: 'Command timed out after 30 seconds. This usually means the command is trying to run too many tests.',
+                stderr: `Command timed out after ${timeoutMs / 1000} seconds. This usually means the command is trying to run too many tests.`,
                 exitCode: 124
             });
-        }, 30000);
+        }, timeoutMs);
         child.stdout?.on('data', (data) => {
             stdout += data.toString();
         });

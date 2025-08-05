@@ -3,6 +3,8 @@ import { spawn } from 'child_process';
 import { fileExists, findProjectRoot, isDirectory as isDirectoryPath } from '../utils/file-utils.js';
 import { processTestResult } from '../utils/output-processor.js';
 import { resolve, relative } from 'path';
+import { getConfig } from '../config/config-loader.js';
+import { checkAllVersions, generateVersionReport } from '../utils/version-checker.js';
 
 /**
  * Tool for running Vitest commands safely
@@ -16,11 +18,6 @@ export const runTestsTool: Tool = {
       target: {
         type: 'string', 
         description: 'File path or directory to test (required to prevent running all tests)'
-      },
-      coverage: {
-        type: 'boolean',
-        description: 'Enable coverage reporting',
-        default: false
       },
       format: {
         type: 'string',
@@ -37,7 +34,6 @@ export type TestFormat = 'summary' | 'detailed';
 
 export interface RunTestsArgs {
   target: string;
-  coverage?: boolean;
   format?: TestFormat;
 }
 
@@ -68,12 +64,6 @@ export interface TestSummary {
   failed: number;
   skipped: number;
   duration: number;
-  coverage?: {
-    lines: number;
-    functions: number;
-    branches: number;
-    statements: number;
-  };
 }
 
 
@@ -91,23 +81,18 @@ export interface StructuredTestResult {
   failedTestNames?: Array<{
     file: string;
     testName: string;
-    fullName: string;
   }>;
   // For detailed format: detailed information about each failing test
   failedTests?: Array<{
     file: string;
     testName: string;
-    fullName: string;
     error: {
       type: string;
       message: string;
       expected?: any;
       actual?: any;
       testIntent?: string;
-      codeSnippet?: {
-        file: string;
-        lines: string[];
-      };
+      codeSnippet?: string[];
       cleanStack: string[];
       rawError?: string;
     };
@@ -119,12 +104,6 @@ export interface StructuredTestResult {
     passedCount: number;
     totalDuration: number;
   }>;
-  coverage?: {
-    lines: number;
-    functions: number;
-    branches: number;
-    statements: number;
-  };
 }
 
 export interface ProcessedTestResult extends RunTestsResult {
@@ -142,11 +121,14 @@ export interface OutputProcessor {
 /**
  * Determine the optimal format based on context and user preference
  */
-export function determineFormat(args: RunTestsArgs, context: TestExecutionContext, hasFailures?: boolean): TestFormat {
+export async function determineFormat(args: RunTestsArgs, context: TestExecutionContext, hasFailures?: boolean): Promise<TestFormat> {
   // User explicitly specified format takes precedence
   if (args.format) {
     return args.format;
   }
+  
+  // Get config defaults
+  const config = await getConfig();
   
   // Smart defaults logic
   // If we know there are failures, always use detailed for better debugging
@@ -159,8 +141,8 @@ export function determineFormat(args: RunTestsArgs, context: TestExecutionContex
     return 'detailed';
   }
   
-  // Single file with no known failures gets summary
-  return 'summary';
+  // Single file with no known failures uses config default
+  return config.testDefaults.format;
 }
 
 /**
@@ -195,6 +177,13 @@ export async function handleRunTests(args: RunTestsArgs): Promise<ProcessedTestR
     const projectRoot = await findProjectRoot(serverDir);
     const targetPath = resolve(projectRoot, args.target);
     
+    // Check Vitest version compatibility
+    const versionCheck = await checkAllVersions(projectRoot);
+    if (versionCheck.errors.length > 0) {
+      const report = generateVersionReport(versionCheck);
+      throw new Error(`Version compatibility issues found:\n\n${report}`);
+    }
+    
     // Validate target exists
     if (!(await fileExists(targetPath))) {
       throw new Error(`Target does not exist: ${args.target} (resolved to: ${targetPath})`);
@@ -209,7 +198,7 @@ export async function handleRunTests(args: RunTestsArgs): Promise<ProcessedTestR
     const executionContext = await createExecutionContext(targetPath);
     
     // Determine format (pre-execution, without failure info)
-    const format = determineFormat(args, executionContext);
+    const format = await determineFormat(args, executionContext);
     
     // Build Vitest command with format-specific options
     const command = await buildVitestCommand(args, projectRoot, targetPath, format);
@@ -221,7 +210,7 @@ export async function handleRunTests(args: RunTestsArgs): Promise<ProcessedTestR
     const hasFailures = result.exitCode !== 0;
     
     // Re-evaluate format now that we know about failures
-    const finalFormat = determineFormat(args, executionContext, hasFailures);
+    const finalFormat = await determineFormat(args, executionContext, hasFailures);
     
     // Create raw result object
     const rawResult: RunTestsResult = {
@@ -271,6 +260,7 @@ export async function handleRunTests(args: RunTestsArgs): Promise<ProcessedTestR
  * Build the Vitest command array
  */
 async function buildVitestCommand(args: RunTestsArgs, projectRoot: string, targetPath: string, _format: TestFormat): Promise<string[]> {
+  const config = await getConfig();
   const command = ['npx', 'vitest', 'run']; // Always use run mode (never watch)
   
   // Use relative path from project root to target
@@ -283,11 +273,6 @@ async function buildVitestCommand(args: RunTestsArgs, projectRoot: string, targe
   
   command.push(relativePath);
   
-  // Add coverage flag if requested
-  if (args.coverage) {
-    command.push('--coverage');
-  }
-  
   // Always use JSON reporter internally for consistent parsing
   // Even 'raw' format will be processed from JSON for LLM consumption
   command.push('--reporter=json');
@@ -298,11 +283,13 @@ async function buildVitestCommand(args: RunTestsArgs, projectRoot: string, targe
 /**
  * Execute a command and return the result
  */
-function executeCommand(command: string[], cwd: string): Promise<{
+async function executeCommand(command: string[], cwd: string): Promise<{
   stdout: string;
   stderr: string;
   exitCode: number;
 }> {
+  const config = await getConfig();
+  
   return new Promise((resolve) => {
     const [cmd, ...args] = command;
     const child = spawn(cmd, args, {
@@ -314,15 +301,16 @@ function executeCommand(command: string[], cwd: string): Promise<{
     let stdout = '';
     let stderr = '';
     
-    // Set a timeout to prevent hanging (reduced to 30 seconds for safety)
+    // Set a timeout to prevent hanging (configurable)
+    const timeoutMs = config.testDefaults.timeout;
     const timeout = setTimeout(() => {
       child.kill('SIGTERM');
       resolve({
         stdout,
-        stderr: 'Command timed out after 30 seconds. This usually means the command is trying to run too many tests.',
+        stderr: `Command timed out after ${timeoutMs / 1000} seconds. This usually means the command is trying to run too many tests.`,
         exitCode: 124
       });
-    }, 30000);
+    }, timeoutMs);
     
     child.stdout?.on('data', (data) => {
       stdout += data.toString();

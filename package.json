@@ -1,18 +1,19 @@
 {
-  "name": "vitest-mcp-server",
-  "version": "1.0.0",
-  "description": "A basic MCP server providing guardrails for Vitest testing commands",
+  "name": "@djankies/vitest-mcp",
+  "version": "0.1.0",
+  "description": "A Model Context Protocol server for Vitest test execution and management",
   "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "vitest-mcp-server": "dist/index.js"
+    "vitest-mcp": "dist/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && chmod +x dist/index.js",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
     "lint": "eslint src --ext .ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepare": "npm run build"
   },
   "keywords": [
     "mcp",
@@ -21,8 +22,15 @@
     "llm",
     "ai"
   ],
-  "author": "Your Name",
+  "author": "djankies",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/djankies/vitest-mcp"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.1"
   },
@@ -31,11 +39,20 @@
     "@types/node": "^24.2.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
+    "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^9.0.0",
     "typescript": "^5.0.0",
     "vitest": "^3.2.4"
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "peerDependencies": {
+    "vitest": ">=0.34.0"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": false
+    }
   }
 }

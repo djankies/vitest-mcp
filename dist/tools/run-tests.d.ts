@@ -6,7 +6,6 @@ export declare const runTestsTool: Tool;
 export type TestFormat = 'summary' | 'detailed';
 export interface RunTestsArgs {
     target: string;
-    coverage?: boolean;
     format?: TestFormat;
 }
 export interface RunTestsResult {
@@ -33,12 +32,6 @@ export interface TestSummary {
     failed: number;
     skipped: number;
     duration: number;
-    coverage?: {
-        lines: number;
-        functions: number;
-        branches: number;
-        statements: number;
-    };
 }
 export interface StructuredTestResult {
     status: 'success' | 'failure' | 'error';
@@ -53,22 +46,17 @@ export interface StructuredTestResult {
     failedTestNames?: Array<{
         file: string;
         testName: string;
-        fullName: string;
     }>;
     failedTests?: Array<{
         file: string;
         testName: string;
-        fullName: string;
         error: {
             type: string;
             message: string;
             expected?: any;
             actual?: any;
             testIntent?: string;
-            codeSnippet?: {
-                file: string;
-                lines: string[];
-            };
+            codeSnippet?: string[];
             cleanStack: string[];
             rawError?: string;
         };
@@ -79,12 +67,6 @@ export interface StructuredTestResult {
         passedCount: number;
         totalDuration: number;
     }>;
-    coverage?: {
-        lines: number;
-        functions: number;
-        branches: number;
-        statements: number;
-    };
 }
 export interface ProcessedTestResult extends RunTestsResult {
     format: TestFormat;
@@ -99,7 +81,7 @@ export interface OutputProcessor {
 /**
  * Determine the optimal format based on context and user preference
  */
-export declare function determineFormat(args: RunTestsArgs, context: TestExecutionContext, hasFailures?: boolean): TestFormat;
+export declare function determineFormat(args: RunTestsArgs, context: TestExecutionContext, hasFailures?: boolean): Promise<TestFormat>;
 /**
  * Create execution context from target path
  */

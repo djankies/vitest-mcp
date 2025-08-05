@@ -1,203 +1,208 @@
-# Vitest MCP Server
+# @djankies/vitest-mcp
 
-A basic MCP (Model Context Protocol) server that provides guardrails for running Vitest commands via LLMs like Claude Code.
+Run Vitest tests through AI assistants with intelligent targeting and structured output.
 
-## Problem Solved
+## Problem & Solution
 
-LLMs frequently run inefficient Vitest commands like `vitest` on entire projects instead of targeting specific files. This server provides simple safety guardrails and basic validation.
+### The Problem
+When AI assistants help with testing, they typically run raw Vitest commands that produce:
+- ❌ **Verbose terminal output** that's hard for AI to parse
+- ❌ **Missing failure context** - no code snippets or visual indicators  
+- ❌ **Accidental full test runs** when no target is specified
+- ❌ **Basic coverage metrics** without actionable insights
+
+### The Solution
+This MCP server provides AI-optimized testing tools that deliver:
+- ✅ **Structured JSON output** designed for AI consumption
+- ✅ **Visual debugging context** with code snippets and failure markers
+- ✅ **Intelligent targeting** prevents accidental full test suite runs
+- ✅ **Coverage gap analysis** with line-by-line insights and recommendations
 
 ## Features
 
-- **Safe Test Execution**: Requires target parameter to prevent running all tests
-- **Test Discovery**: Find and list test files in your project  
-- **Basic Validation**: Validates file paths and prevents dangerous commands
-- **LLM-Optimized Output**: Multiple output formats optimized for AI consumption
-- **Smart Defaults**: Automatically selects best output format based on context
-- **Simple Interface**: Just 2 tools - `list_tests` and `run_tests`
+- **🎯 Smart Test Execution** - Run specific files/folders with structured output
+- **📊 Coverage Analysis** - Line-by-line gap analysis with actionable insights  
+- **📁 Test Discovery** - Find and organize test files across your project
+- **🔗 Claude Code Hooks** - Automatic interception of Vitest commands
+- **⚡ Version Checking** - Ensures compatibility with your Vitest setup
+- **🛡️ Safety Guards** - Prevents accidental full project test runs
 
-## Installation
+## Quick Start
 
-```bash
-# Clone and build
-git clone <repo-url>
-cd vitest-mcp
-npm install
-npm run build
+### 1. Add to Claude Desktop
 
-# Run the server
-npm start
-```
-
-## MCP Tools
-
-### `list_tests`
-
-Find test files in your project.
-
-**Parameters:**
-- `path` (optional): Directory to search (defaults to project root)
-
-**Example:**
-```json
-{
-  "name": "list_tests",
-  "arguments": {
-    "path": "src/components"
-  }
-}
-```
-
-### `run_tests`
-
-Execute Vitest commands safely with validation and LLM-optimized output formats.
-
-**Parameters:**
-- `target` (required): File or directory to test
-- `coverage` (optional): Enable coverage reporting
-- `format` (optional): Output format - `"summary"` (default), `"detailed"`, or `"json"`
-
-**Output Formats:**
-- **`summary`**: Minimal output perfect for LLMs (e.g., "✅ 5 tests passed in 234ms")
-- **`detailed`**: Includes test names and failure details when needed
-- **`json`**: Structured JSON data for programmatic consumption
-
-**Smart Defaults:**
-- Single file → `summary` format
-- Multiple files → `detailed` format
-- Test failures → Automatically includes error details
-
-### Structured Output for LLMs
-
-All formats now return both human-readable strings AND structured data optimized for LLM consumption:
-
-```javascript
-{
-  // Human-readable output
-  processedOutput: "✅ 5 tests passed in 234ms",
-  
-  // Structured data for LLMs
-  structured: {
-    status: "success",
-    summary: {
-      total: 5,
-      passed: 5,
-      failed: 0,
-      skipped: 0,
-      duration: 234,
-      passRate: 100
-    },
-    files: [{
-      path: "src/example.test.ts",
-      name: "example.test.ts",
-      status: "passed",
-      duration: 234,
-      tests: [{
-        name: "should work",
-        fullName: "Example › should work",
-        status: "passed",
-        duration: 45
-      }]
-    }],
-    failures: [{
-      file: "example.test.ts",
-      test: "should fail",
-      error: "Expected 2 to be 3"
-    }],
-    coverage: {
-      lines: 85.5,
-      functions: 90.2,
-      branches: 78.3,
-      statements: 86.1
-    }
-  }
-}
-```
-
-This structured format provides:
-- **Quick access to summary statistics** without parsing strings
-- **Detailed test results** organized by file and test case  
-- **Failure information** extracted and organized for easy access
-- **Coverage data** when available
-- **Pass rate calculation** for quick assessment
-
-**Examples:**
-```json
-// Simple usage with smart defaults
-{
-  "name": "run_tests", 
-  "arguments": {
-    "target": "src/components/Button.test.ts"
-  }
-}
-
-// With coverage and detailed output
-{
-  "name": "run_tests", 
-  "arguments": {
-    "target": "src",
-    "coverage": true,
-    "format": "detailed"
-  }
-}
-
-// Get structured JSON output
-{
-  "name": "run_tests",
-  "arguments": {
-    "target": "src/example.test.ts",
-    "format": "json"
-  }
-}
-```
-
-## Safety Features
-
-- **Required Target**: Prevents running all tests by requiring a specific target
-- **Project Root Protection**: Blocks attempts to run tests on entire project root
-- **Path Validation**: Checks that target files/directories exist before testing  
-- **Relative Path Safety**: Uses relative paths to prevent absolute path issues
-- **Command Timeout**: 30-second timeout to prevent hanging
-- **Error Handling**: Clear error messages for debugging
-
-## Development
-
-```bash
-# Install dependencies
-npm install
-
-# Build
-npm run build
-
-# Watch mode for development
-npm run dev
-
-# Run tests
-npm test
-
-# Lint
-npm run lint
-```
-
-## Configuration with Claude Code
-
-Add to your MCP settings:
+Add this to your Claude Desktop configuration:
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%/Claude/claude_desktop_config.json`
 
 ```json
 {
   "mcpServers": {
     "vitest": {
-      "command": "node",
-      "args": ["/path/to/vitest-mcp/dist/index.js"]
+      "command": "npx",
+      "args": ["-y", "@djankies/vitest-mcp"]
     }
   }
 }
 ```
 
-## Future Versions
+### 2. Restart Claude Desktop
 
-- V2: Configuration options
-- V3: Performance optimizations
-- V4: Advanced features (caching, analytics, etc.)
+### 3. Start Using
+
+Ask Claude to:
+- "Run tests in the components folder"
+- "Check coverage for the auth module"
+- "List all test files"
+
+## Requirements
+
+### Minimum Versions
+
+- **Node.js**: 18+
+- **Vitest**: 0.34.0+ (3.0.0+ recommended)
+- **Coverage Provider**: `@vitest/coverage-v8` (for coverage analysis)
+
+```bash
+npm install --save-dev vitest@latest @vitest/coverage-v8@latest
+```
+
+### Project Setup
+
+Ensure your `vitest.config.ts` includes:
+
+```typescript
+export default defineConfig({
+  test: {
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html']
+    }
+  }
+})
+```
+
+## Tools
+
+### `list_tests`
+List test files in your project.
+
+```javascript
+list_tests({ directory: "./src" })
+```
+
+### `run_tests`
+Execute tests with AI-optimized output.
+
+```javascript
+run_tests({ 
+  target: "./src/components", 
+  format: "detailed" // or "summary"
+})
+```
+
+### `analyze_coverage`
+Analyze test coverage with gap insights.
+
+```javascript
+analyze_coverage({
+  target: "./src/api",
+  threshold: 80,
+  format: "detailed"
+})
+```
+
+## Claude Code Hook Integration (Recommended)
+
+Automatically intercept Vitest commands and suggest MCP tools.
+
+### Setup
+
+```bash
+# Copy hook script
+curl -o .claude/vitest-hook.sh https://raw.githubusercontent.com/djankies/vitest-mcp/main/hooks/vitest-hook.sh
+chmod +x .claude/vitest-hook.sh
+
+# Update .claude/settings.local.json
+cat << 'EOF' > .claude/settings.local.json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/vitest-hook.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+EOF
+```
+
+### Result
+
+```bash
+# Before: Raw Vitest command
+npx vitest run src/components/
+
+# After: Hook suggests MCP tool
+🔄 Using run_tests MCP tool for better AI integration...
+```
+
+## Configuration Options
+
+### MCP Server Options
+```json
+{
+  "mcpServers": {
+    "vitest": {
+      "command": "npx",
+      "args": [
+        "-y", "@djankies/vitest-mcp",
+        "--format", "detailed",
+        "--timeout", "60000"
+      ]
+    }
+  }
+}
+```
+
+### Available CLI Options
+- `--format <summary|detailed>` - Output format
+- `--timeout <ms>` - Test timeout (default: 30000)
+- `--verbose` - Debug information
+
+## Troubleshooting
+
+### Version Issues
+```bash
+# Check compatibility
+npx -y @djankies/vitest-mcp --version-check
+```
+
+### Common Issues
+
+**"Vitest not found"**
+```bash
+npm install --save-dev vitest@latest
+```
+
+**"Coverage provider not found"**
+```bash
+npm install --save-dev @vitest/coverage-v8@latest
+```
+
+**Hook not working**
+```bash
+# Test hook directly
+./.claude/vitest-hook.sh vitest run src/
+# Bypass hook
+npx vitest run src/ --bypass-hook
+```
 
 ## License
 

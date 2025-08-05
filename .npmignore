@@ -1,0 +1,62 @@
+# Source files
+src/
+*.ts
+!dist/**/*.d.ts
+
+# Development files
+.gitignore
+.eslintrc.*
+eslint.config.js
+vitest.config.ts
+tsconfig.json
+*.test.ts
+*.spec.ts
+
+# All config files (internal use only)
+.vitest-mcp.json
+.vitest-mcp.config.json
+.vitest-mcp.dev.json
+vitest-mcp.config.json
+*.config.json
+
+# Documentation
+PRD.md
+interface-design-summary.md
+CLAUDE.md
+
+# Scripts
+scripts/
+
+# Claude files
+.claude/
+claude-mcp-config.json
+
+# Build artifacts
+*.tgz
+coverage/
+.nyc_output/
+
+# Development dependencies
+node_modules/
+.npm/
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.github/
+
+# Other
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
