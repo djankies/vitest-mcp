@@ -31,7 +31,6 @@ CLAUDE.md
 dist/components/
 dist/services/
 dist/math.*
-dist/** */
 
 # Scripts
 scripts/
