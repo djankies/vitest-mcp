@@ -2,6 +2,10 @@
 
 AI-optimized Vitest interface with structured output, visual debugging, and intelligent coverage analysis.
 
+<a href="https://glama.ai/mcp/servers/@djankies/vitest-mcp">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@djankies/vitest-mcp/badge" alt="Vitest Server MCP server" />
+</a>
+
 ## Problem & Solution
 
 ### The Problem
