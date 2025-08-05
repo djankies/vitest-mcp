@@ -45,30 +45,47 @@ jobs:
       - name: Run tests
         run: npm test
       
-      - name: Update version (manual trigger)
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.version != ''
-        run: npm version ${{ github.event.inputs.version }} --no-git-tag-version
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "push" ] && [ -n "${{ github.ref_name }}" ]; then
+            # For tag pushes, extract version from tag
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"  # Remove 'v' prefix if present
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
+            # For manual triggers with version input
+            VERSION="${{ github.event.inputs.version }}"
+            npm version $VERSION --no-git-tag-version
+          else
+            # Default to package.json version
+            VERSION=$(node -p "require('./package.json').version")
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "Detected version: $VERSION"
         
       - name: Publish to npm
         run: npm publish --access public
           
-      - name: Create GitHub Release (manual trigger)
+      # Only create release for manual triggers, not for tag pushes
+      # (tag pushes are usually created by the release workflow)
+      - name: Create GitHub Release (manual trigger only)
         if: github.event_name == 'workflow_dispatch'
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v${{ steps.version.outputs.version }}
-          release_name: Release v${{ steps.version.outputs.version }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          release_name: Release ${{ steps.version.outputs.tag }}
           body: |
             ## Changes
             
-            See [CHANGELOG.md](CHANGELOG.md) for details.
+            Manual release of version ${{ steps.version.outputs.version }}
             
             ## Installation
             
             ```bash
-            npx -y @djankies/vitest-mcp
+            npx -y @djankies/vitest-mcp@${{ steps.version.outputs.version }}
             ```
           draft: false
           prerelease: false
