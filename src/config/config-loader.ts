@@ -131,7 +131,7 @@ export async function loadConfiguration(cliArgs?: string[]): Promise<ResolvedVit
   try {
     // Parse CLI arguments
     const args = cliArgs || process.argv.slice(2);
-    const cliConfig = parseCliArgs(args);
+    const cliConfig = await parseCliArgs(args);
     const cliConfigPath = getConfigPathFromArgs(args);
     
     // Load file configuration

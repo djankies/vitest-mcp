@@ -15,6 +15,9 @@ import { analyzeCoverageTool, handleAnalyzeCoverage } from './tools/analyze-cove
 import { AnalyzeCoverageArgs } from './types/coverage-types.js';
 import { getConfig } from './config/config-loader.js';
 
+// Read package.json for dynamic version
+const packageJson = await import('../package.json', { with: { type: 'json' } });
+
 /**
  * Basic Vitest MCP Server
  * Provides simple guardrails for running Vitest commands via LLMs
@@ -26,8 +29,8 @@ class VitestMCPServer {
   constructor() {
     this.server = new Server(
       {
-        name: '@djankies/vitest-mcp',
-        version: '0.1.0',
+        name: packageJson.default.name,
+        version: packageJson.default.version,
       },
       {
         capabilities: {

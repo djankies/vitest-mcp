@@ -3,7 +3,7 @@ import { VitestMCPConfig } from '../types/config-types.js';
 /**
  * Parse command-line arguments into configuration overrides
  */
-export function parseCliArgs(args: string[]): Partial<VitestMCPConfig> {
+export async function parseCliArgs(args: string[]): Promise<Partial<VitestMCPConfig>> {
   const config: Partial<VitestMCPConfig> = {};
   
   for (let i = 0; i < args.length; i++) {
@@ -104,9 +104,12 @@ export function parseCliArgs(args: string[]): Partial<VitestMCPConfig> {
         process.exit(0);
         
       // Version
-      case '--version':
-        console.log('@djankies/vitest-mcp version 0.1.0');
+      case '--version': {
+        // Read version from package.json dynamically
+        const packageJson = await import('../../package.json', { with: { type: 'json' } });
+        console.log(`@djankies/vitest-mcp version ${packageJson.default.version}`);
         process.exit(0);
+      }
     }
   }
   

@@ -1,6 +1,7 @@
-import { readFile } from 'fs/promises';
-import { resolve, dirname } from 'path';
-import { fileExists } from './file-utils.js';
+// Commented out unused imports to fix linting
+// import { readFile } from 'fs/promises';
+// import { resolve, dirname } from 'path';
+// import { fileExists } from './file-utils.js';
 import {
   RawCoverageData,
   CoverageAnalysisResult

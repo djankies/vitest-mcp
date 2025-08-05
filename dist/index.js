@@ -6,6 +6,8 @@ import { listTestsTool, handleListTests } from './tools/list-tests.js';
 import { runTestsTool, handleRunTests } from './tools/run-tests.js';
 import { analyzeCoverageTool, handleAnalyzeCoverage } from './tools/analyze-coverage.js';
 import { getConfig } from './config/config-loader.js';
+// Read package.json for dynamic version
+const packageJson = await import('../package.json', { with: { type: 'json' } });
 /**
  * Basic Vitest MCP Server
  * Provides simple guardrails for running Vitest commands via LLMs
@@ -14,8 +16,8 @@ class VitestMCPServer {
     server;
     constructor() {
         this.server = new Server({
-            name: '@djankies/vitest-mcp',
-            version: '0.1.0',
+            name: packageJson.default.name,
+            version: packageJson.default.version,
         }, {
             capabilities: {
                 tools: {},
