@@ -1,6 +1,7 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
-import { findTestFiles, findProjectRoot, fileExists, isDirectory } from '../utils/file-utils.js';
+import { findTestFiles, fileExists, isDirectory } from '../utils/file-utils.js';
 import { resolve } from 'path';
+import { projectContext } from '../context/project-context.js';
 
 /**
  * Tool for listing test files in the project
@@ -39,9 +40,13 @@ export interface ListTestsResult {
  */
 export async function handleListTests(args: ListTestsArgs): Promise<ListTestsResult> {
   try {
-    // Get project root from the current working directory where the user invoked the MCP server
-    // This ensures we analyze the user's project, not the npx cache location
-    const projectRoot = await findProjectRoot(process.cwd());
+    // Get project root from the project context (must be set first)
+    let projectRoot: string;
+    try {
+      projectRoot = projectContext.getProjectRoot();
+    } catch (error) {
+      throw new Error('Project root has not been set. Please use the set_project_root tool first to specify which repository to work with.');
+    }
     const searchPath = args.path ? resolve(projectRoot, args.path) : projectRoot;
     
     // Validate search path exists

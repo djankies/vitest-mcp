@@ -39,6 +39,7 @@ const DEFAULT_CONFIG: ResolvedVitestMCPConfig = {
     maxFiles: 100,
     requireConfirmation: true,
     allowedRunners: ['vitest'],
+    allowedPaths: undefined as any, // No restriction by default, will be resolved correctly
   },
 };
 

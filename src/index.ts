@@ -13,6 +13,7 @@ import { listTestsTool, handleListTests, ListTestsArgs } from './tools/list-test
 import { runTestsTool, handleRunTests, RunTestsArgs } from './tools/run-tests.js';
 import { analyzeCoverageTool, handleAnalyzeCoverage } from './tools/analyze-coverage.js';
 import { AnalyzeCoverageArgs } from './types/coverage-types.js';
+import { setProjectRootTool, handleSetProjectRoot, SetProjectRootArgs } from './tools/set-project-root.js';
 import { getConfig } from './config/config-loader.js';
 
 // Read package.json for dynamic version
@@ -47,7 +48,7 @@ class VitestMCPServer {
     // List available tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
-        tools: [listTestsTool, runTestsTool, analyzeCoverageTool],
+        tools: [setProjectRootTool, listTestsTool, runTestsTool, analyzeCoverageTool],
       };
     });
 
@@ -55,6 +56,18 @@ class VitestMCPServer {
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       try {
         switch (request.params.name) {
+          case 'set_project_root': {
+            const result = await handleSetProjectRoot((request.params.arguments || {}) as unknown as SetProjectRootArgs);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(result, null, 2),
+                },
+              ],
+            };
+          }
+
           case 'list_tests': {
             const listResult = await handleListTests((request.params.arguments || {}) as ListTestsArgs);
             return {
@@ -183,6 +196,23 @@ export default defineConfig({
   },
 });
 \`\`\`
+
+## ⚠️ IMPORTANT: Project Setup Required
+
+Before using any tools, you MUST first set the project root to specify which repository to work with:
+
+### set_project_root (Required First Step)
+Sets the project root directory for all subsequent operations.
+
+**Parameters:**
+- \`path\` (required): Absolute path to the project root directory
+
+**Example Usage:**
+\`\`\`
+set_project_root({ path: "/Users/username/Projects/my-project" })
+\`\`\`
+
+**Security Note:** If configured with \`allowedPaths\` in your .vitest-mcp.json, the tool will only accept paths within those directories.
 
 ## Available Tools
 

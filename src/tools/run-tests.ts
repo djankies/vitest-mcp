@@ -1,10 +1,11 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { spawn } from 'child_process';
-import { fileExists, findProjectRoot, isDirectory as isDirectoryPath } from '../utils/file-utils.js';
+import { fileExists, isDirectory as isDirectoryPath } from '../utils/file-utils.js';
 import { processTestResult } from '../utils/output-processor.js';
 import { resolve, relative } from 'path';
 import { getConfig } from '../config/config-loader.js';
 import { checkAllVersions, generateVersionReport } from '../utils/version-checker.js';
+import { projectContext } from '../context/project-context.js';
 
 /**
  * Tool for running Vitest commands safely
@@ -170,9 +171,13 @@ export async function handleRunTests(args: RunTestsArgs): Promise<ProcessedTestR
       throw new Error('Target parameter is required. Specify a file or directory to prevent running all tests.');
     }
     
-    // Get project root from the current working directory where the user invoked the MCP server
-    // This ensures we analyze the user's project, not the npx cache location
-    const projectRoot = await findProjectRoot(process.cwd());
+    // Get project root from the project context (must be set first)
+    let projectRoot: string;
+    try {
+      projectRoot = projectContext.getProjectRoot();
+    } catch (error) {
+      throw new Error('Project root has not been set. Please use the set_project_root tool first to specify which repository to work with.');
+    }
     const targetPath = resolve(projectRoot, args.target);
     
     // Check Vitest version compatibility

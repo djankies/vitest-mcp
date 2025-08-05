@@ -1,6 +1,6 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { spawn } from 'child_process';
-import { fileExists, findProjectRoot, isDirectory as isDirectoryPath } from '../utils/file-utils.js';
+import { fileExists, isDirectory as isDirectoryPath } from '../utils/file-utils.js';
 import { resolve, relative } from 'path';
 import { readFile } from 'fs/promises';
 import { 
@@ -12,6 +12,7 @@ import {
 import { processCoverageData } from '../utils/coverage-processor.js';
 import { getConfig } from '../config/config-loader.js';
 import { checkAllVersions, generateVersionReport } from '../utils/version-checker.js';
+import { projectContext } from '../context/project-context.js';
 
 /**
  * Tool for analyzing test coverage with actionable insights
@@ -95,9 +96,13 @@ export async function handleAnalyzeCoverage(args: AnalyzeCoverageArgs): Promise<
     const includeDetails = args.includeDetails ?? config.coverageDefaults.includeDetails;
     const thresholds = args.thresholds ?? config.coverageDefaults.thresholds;
     
-    // Get project root from the current working directory where the user invoked the MCP server
-    // This ensures we analyze the user's project, not the npx cache location
-    const projectRoot = await findProjectRoot(process.cwd());
+    // Get project root from the project context (must be set first)
+    let projectRoot: string;
+    try {
+      projectRoot = projectContext.getProjectRoot();
+    } catch (error) {
+      throw new Error('Project root has not been set. Please use the set_project_root tool first to specify which repository to work with.');
+    }
     const targetPath = resolve(projectRoot, args.target);
     
     // Check Vitest and coverage provider version compatibility

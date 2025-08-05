@@ -29,6 +29,7 @@ This MCP server provides AI-optimized testing tools that deliver:
 - **📁 Test Discovery** - Find and organize test files across your project
 - **🔗 Claude Code Hooks** - Automatic interception of Vitest commands
 - **🛡️ Safety Guards** - Prevents accidental full project test runs
+- **🏢 Multi-Repository Support** - Work across multiple projects in a single session
 
 ## Quick Start
 
@@ -52,7 +53,15 @@ Add this to your Claude Desktop configuration:
 
 ### 2. Restart Claude Desktop
 
-### 3. Start Using
+### 3. Set Project Root (Required)
+
+Before using any tools, you must first specify which repository to work with:
+
+```javascript
+set_project_root({ path: "/absolute/path/to/your/project" })
+```
+
+### 4. Start Using
 
 Ask Claude to:
 
@@ -89,6 +98,28 @@ export default defineConfig({
 
 ## Tools
 
+### `set_project_root` (Required First)
+
+**IMPORTANT**: This must be called before using any other tools.
+
+Set the project root directory for all subsequent operations.
+
+```javascript
+set_project_root({ 
+  path: "/Users/username/Projects/my-app" 
+})
+```
+
+**Parameters:**
+
+- `path` (required): Absolute path to the project root directory
+
+**Features:**
+
+- Validates project has `package.json` or `vitest.config`
+- Prevents running on the MCP package itself
+- Supports path restrictions via configuration
+
 ### `list_tests`
 
 List test files in your project.
@@ -118,6 +149,24 @@ analyze_coverage({
   threshold: 80,
   format: "detailed"
 })
+```
+
+## Multi-Repository Workflow
+
+Work across multiple projects in a single Claude session:
+
+```javascript
+// Switch to project A
+set_project_root({ path: "/Users/username/Projects/frontend" })
+run_tests({ target: "./src/components" })
+
+// Switch to project B
+set_project_root({ path: "/Users/username/Projects/backend" })
+run_tests({ target: "./src/api" })
+
+// Switch back to project A
+set_project_root({ path: "/Users/username/Projects/frontend" })
+analyze_coverage({ target: "./src/utils" })
 ```
 
 ## Claude Code Hook Integration (Recommended)
@@ -153,6 +202,30 @@ chmod +x .claude/vitest-hook.sh
 
 ## Configuration Options
 
+### Project Configuration (.vitest-mcp.json)
+
+Create a `.vitest-mcp.json` file in your home directory or project root:
+
+```json
+{
+  "safety": {
+    "allowedPaths": ["/Users/username/Projects"]
+  },
+  "testDefaults": {
+    "format": "detailed",
+    "timeout": 60000
+  },
+  "coverageDefaults": {
+    "threshold": 80,
+    "format": "detailed"
+  }
+}
+```
+
+**Security Options:**
+
+- `allowedPaths`: Restrict `set_project_root` to specific directories (string or array)
+
 ### MCP Server Options
 
 ```json
@@ -187,6 +260,22 @@ npx -y @djankies/vitest-mcp --version-check
 
 ### Common Issues
 
+**"Project root has not been set"**
+
+Always call `set_project_root` first:
+
+```javascript
+set_project_root({ path: "/path/to/project" })
+```
+
+**"Cannot set project root to the Vitest MCP package"**
+
+The tool prevents running on itself. Use it on other projects.
+
+**"Path is outside allowed directories"**
+
+Check your `.vitest-mcp.json` configuration for `allowedPaths` restrictions.
+
 **"Vitest not found"**
 
 ```bash
@@ -207,6 +296,10 @@ npm install --save-dev @vitest/coverage-v8@latest
 # Bypass hook
 npx vitest run src/ --bypass-hook
 ```
+
+## For AI/LLM Users
+
+- **[CLAUDE.example.md](./CLAUDE.example.md)** - Example snippet to add to your project's CLAUDE.md
 
 ## License
 

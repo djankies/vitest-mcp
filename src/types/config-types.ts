@@ -132,6 +132,14 @@ export interface VitestMCPConfig {
      * @default ['vitest']
      */
     allowedRunners?: string[];
+    
+    /**
+     * Restrict project root to specific directories
+     * Can be a single path or array of paths
+     * When set, set_project_root will only accept paths within these directories
+     * @default undefined (no restriction)
+     */
+    allowedPaths?: string | string[];
   };
 }
 
