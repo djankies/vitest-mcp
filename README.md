@@ -1,18 +1,22 @@
-# @djankies/vitest-mcp
+# Vitest MCP Server
 
-Run Vitest tests through AI assistants with intelligent targeting and structured output.
+AI-optimized Vitest interface with structured output, visual debugging, and intelligent coverage analysis.
 
 ## Problem & Solution
 
 ### The Problem
+
 When AI assistants help with testing, they typically run raw Vitest commands that produce:
+
 - ❌ **Verbose terminal output** that's hard for AI to parse
 - ❌ **Missing failure context** - no code snippets or visual indicators  
 - ❌ **Accidental full test runs** when no target is specified
 - ❌ **Basic coverage metrics** without actionable insights
 
 ### The Solution
+
 This MCP server provides AI-optimized testing tools that deliver:
+
 - ✅ **Structured JSON output** designed for AI consumption
 - ✅ **Visual debugging context** with code snippets and failure markers
 - ✅ **Intelligent targeting** prevents accidental full test suite runs
@@ -24,7 +28,6 @@ This MCP server provides AI-optimized testing tools that deliver:
 - **📊 Coverage Analysis** - Line-by-line gap analysis with actionable insights  
 - **📁 Test Discovery** - Find and organize test files across your project
 - **🔗 Claude Code Hooks** - Automatic interception of Vitest commands
-- **⚡ Version Checking** - Ensures compatibility with your Vitest setup
 - **🛡️ Safety Guards** - Prevents accidental full project test runs
 
 ## Quick Start
@@ -32,6 +35,7 @@ This MCP server provides AI-optimized testing tools that deliver:
 ### 1. Add to Claude Desktop
 
 Add this to your Claude Desktop configuration:
+
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%/Claude/claude_desktop_config.json`
 
@@ -51,6 +55,7 @@ Add this to your Claude Desktop configuration:
 ### 3. Start Using
 
 Ask Claude to:
+
 - "Run tests in the components folder"
 - "Check coverage for the auth module"
 - "List all test files"
@@ -85,6 +90,7 @@ export default defineConfig({
 ## Tools
 
 ### `list_tests`
+
 List test files in your project.
 
 ```javascript
@@ -92,6 +98,7 @@ list_tests({ directory: "./src" })
 ```
 
 ### `run_tests`
+
 Execute tests with AI-optimized output.
 
 ```javascript
@@ -102,6 +109,7 @@ run_tests({
 ```
 
 ### `analyze_coverage`
+
 Analyze test coverage with gap insights.
 
 ```javascript
@@ -156,6 +164,7 @@ npx vitest run src/components/
 ## Configuration Options
 
 ### MCP Server Options
+
 ```json
 {
   "mcpServers": {
@@ -172,6 +181,7 @@ npx vitest run src/components/
 ```
 
 ### Available CLI Options
+
 - `--format <summary|detailed>` - Output format
 - `--timeout <ms>` - Test timeout (default: 30000)
 - `--verbose` - Debug information
@@ -179,6 +189,7 @@ npx vitest run src/components/
 ## Troubleshooting
 
 ### Version Issues
+
 ```bash
 # Check compatibility
 npx -y @djankies/vitest-mcp --version-check
@@ -187,16 +198,19 @@ npx -y @djankies/vitest-mcp --version-check
 ### Common Issues
 
 **"Vitest not found"**
+
 ```bash
 npm install --save-dev vitest@latest
 ```
 
 **"Coverage provider not found"**
+
 ```bash
 npm install --save-dev @vitest/coverage-v8@latest
 ```
 
 **Hook not working**
+
 ```bash
 # Test hook directly
 ./.claude/vitest-hook.sh vitest run src/
