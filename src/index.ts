@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+// Vitest MCP Server - With Husky pre-commit hooks
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
