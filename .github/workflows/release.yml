@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      id-token: write
+      id-token: write # Required for OIDC token to authenticate with npm
       pull-requests: write
     
     outputs:
@@ -133,5 +133,3 @@ jobs:
       - name: Publish to npm
         if: github.event.inputs.publish == 'true'
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
