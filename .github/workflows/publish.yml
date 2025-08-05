@@ -17,7 +17,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write  # Changed from 'read' to 'write' to allow creating releases
       id-token: write
     
     steps:
