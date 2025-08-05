@@ -95,9 +95,9 @@ export async function handleAnalyzeCoverage(args: AnalyzeCoverageArgs): Promise<
     const includeDetails = args.includeDetails ?? config.coverageDefaults.includeDetails;
     const thresholds = args.thresholds ?? config.coverageDefaults.thresholds;
     
-    // Get project root and resolve target path
-    const serverDir = new URL('../..', import.meta.url).pathname;
-    const projectRoot = await findProjectRoot(serverDir);
+    // Get project root from the current working directory where the user invoked the MCP server
+    // This ensures we analyze the user's project, not the npx cache location
+    const projectRoot = await findProjectRoot(process.cwd());
     const targetPath = resolve(projectRoot, args.target);
     
     // Check Vitest and coverage provider version compatibility

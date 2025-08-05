@@ -1,0 +1,137 @@
+name: Release and Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+      prerelease:
+        description: 'Prerelease (beta/alpha/rc)'
+        required: false
+        type: string
+      publish:
+        description: 'Publish to npm'
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      pull-requests: write
+    
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+          
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run tests
+        run: npm test
+        
+      - name: Run linting
+        run: npm run lint
+        
+      - name: Build package
+        run: npm run build
+        
+      - name: Update version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.prerelease }}" ]; then
+            NEW_VERSION=$(npm version ${{ github.event.inputs.release_type }} --preid=${{ github.event.inputs.prerelease }} --no-git-tag-version)
+          else
+            NEW_VERSION=$(npm version ${{ github.event.inputs.release_type }} --no-git-tag-version)
+          fi
+          echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=v${NEW_VERSION}" >> $GITHUB_OUTPUT
+          echo "Updated version to ${NEW_VERSION}"
+          
+      - name: Generate changelog
+        run: |
+          cat > RELEASE_NOTES.md << 'EOF'
+          ## Changes in ${{ steps.version.outputs.version }}
+          
+          ### 🐛 Bug Fixes
+          - Fixed MCP server working directory issue - now correctly analyzes user project instead of npx cache
+          
+          ### 🔧 Improvements  
+          - Enhanced project root detection using process.cwd()
+          - All tools now properly respect user's working directory
+          
+          ### 📦 Installation
+          
+          ```bash
+          npx -y @djankies/vitest-mcp@${{ steps.version.outputs.version }}
+          ```
+          
+          ### 🔗 Claude Desktop Configuration
+          
+          ```json
+          {
+            "mcpServers": {
+              "vitest": {
+                "command": "npx",
+                "args": ["-y", "@djankies/vitest-mcp@${{ steps.version.outputs.version }}"]
+              }
+            }
+          }
+          ```
+          EOF
+          
+      - name: Commit version bump
+        run: |
+          git add package.json package-lock.json
+          git commit -m "chore: bump version to ${{ steps.version.outputs.version }}"
+          git tag ${{ steps.version.outputs.tag }}
+          
+      - name: Push changes
+        run: |
+          git push origin main
+          git push origin ${{ steps.version.outputs.tag }}
+          
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          release_name: Release ${{ steps.version.outputs.tag }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: ${{ github.event.inputs.prerelease != '' }}
+          
+      - name: Publish to npm
+        if: github.event.inputs.publish == 'true'
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

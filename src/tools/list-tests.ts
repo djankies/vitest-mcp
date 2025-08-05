@@ -39,10 +39,9 @@ export interface ListTestsResult {
  */
 export async function handleListTests(args: ListTestsArgs): Promise<ListTestsResult> {
   try {
-    // Determine search path relative to server location, not current working directory  
-    // From dist/tools/list-tests.js, go up to project root: ../..
-    const serverDir = new URL('../..', import.meta.url).pathname;
-    const projectRoot = await findProjectRoot(serverDir);
+    // Get project root from the current working directory where the user invoked the MCP server
+    // This ensures we analyze the user's project, not the npx cache location
+    const projectRoot = await findProjectRoot(process.cwd());
     const searchPath = args.path ? resolve(projectRoot, args.path) : projectRoot;
     
     // Validate search path exists

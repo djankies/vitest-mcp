@@ -170,11 +170,9 @@ export async function handleRunTests(args: RunTestsArgs): Promise<ProcessedTestR
       throw new Error('Target parameter is required. Specify a file or directory to prevent running all tests.');
     }
     
-    // Get project root relative to the server location, not current working directory
-    // This fixes issues when MCP server is called from different working directories
-    // From dist/tools/run-tests.js, go up to project root: ../..
-    const serverDir = new URL('../..', import.meta.url).pathname;
-    const projectRoot = await findProjectRoot(serverDir);
+    // Get project root from the current working directory where the user invoked the MCP server
+    // This ensures we analyze the user's project, not the npx cache location
+    const projectRoot = await findProjectRoot(process.cwd());
     const targetPath = resolve(projectRoot, args.target);
     
     // Check Vitest version compatibility

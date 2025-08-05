@@ -1,7 +1,12 @@
-# Source files
+# Source files (keep only dist/)
 src/
 *.ts
 !dist/**/*.d.ts
+
+# Test files anywhere
+**/*.test.ts
+**/*.spec.ts
+**/__tests__/
 
 # Development files
 .gitignore
@@ -9,8 +14,6 @@ src/
 eslint.config.js
 vitest.config.ts
 tsconfig.json
-*.test.ts
-*.spec.ts
 
 # All config files (internal use only)
 .vitest-mcp.json
@@ -23,6 +26,12 @@ vitest-mcp.config.json
 PRD.md
 interface-design-summary.md
 CLAUDE.md
+
+# Test/demo components and services (not needed for MCP server)
+dist/components/
+dist/services/
+dist/math.*
+dist/** */
 
 # Scripts
 scripts/
@@ -51,7 +60,7 @@ node_modules/
 .DS_Store
 Thumbs.db
 
-# Git
+# Git and GitHub
 .git/
 .github/
 
