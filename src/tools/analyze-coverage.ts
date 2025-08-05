@@ -510,12 +510,23 @@ async function buildCoverageCommand(
 async function executeCommand(command: string[], cwd: string): Promise<CoverageExecutionResult> {
   const config = await getConfig();
   
+  // Log the command for debugging
+  if (process.env.VITEST_MCP_DEBUG) {
+    console.error('Executing command:', command.join(' '));
+  }
+  
   return new Promise((resolve) => {
     const [cmd, ...args] = command;
+    
+    // Use spawn without shell for better argument handling
+    // This prevents issues with complex arguments being misinterpreted
     const child = spawn(cmd, args, {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
-      shell: true
+      // Don't use shell - it can cause issues with argument parsing
+      shell: false,
+      // On Windows, we might need to use .cmd extension for npx
+      ...(process.platform === 'win32' && cmd === 'npx' ? { shell: true } : {})
     });
     
     let stdout = '';
