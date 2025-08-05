@@ -55,7 +55,7 @@ jobs:
           npm whoami || echo "Not authenticated"
           
       - name: Publish to npm
-        run: npm publish --access public
+        run: npm publish --provenance --access public
           
       - name: Create GitHub Release (manual trigger)
         if: github.event_name == 'workflow_dispatch'
