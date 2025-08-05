@@ -26,11 +26,15 @@ const DEFAULT_CONFIG: ResolvedVitestMCPConfig = {
     exclude: [
       '**/*.stories.*',
       '**/*.story.*',
+      '**/.storybook/**',
+      '**/storybook-static/**',
       '**/e2e/**',
       '**/*.e2e.*',
       '**/test-utils/**',
       '**/mocks/**',
-      '**/__mocks__/**'
+      '**/__mocks__/**',
+      '**/setup-tests.*',
+      '**/test-setup.*'
     ],
   },
   discovery: {

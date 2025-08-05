@@ -453,8 +453,12 @@ async function buildCoverageCommand(
   command.push('--coverage');
   
   // Add exclude patterns if provided
+  // These patterns need to be applied to BOTH test execution and coverage
   if (args.exclude && args.exclude.length > 0) {
     for (const pattern of args.exclude) {
+      // Exclude from test execution (prevents Vitest from running these files)
+      command.push(`--exclude=${pattern}`);
+      // Also exclude from coverage reporting
       command.push(`--coverage.exclude=${pattern}`);
     }
   }

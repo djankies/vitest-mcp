@@ -34,11 +34,15 @@ vi.mock('../../config/config-loader.js', () => ({
       exclude: [
         '**/*.stories.*',
         '**/*.story.*',
+        '**/.storybook/**',
+        '**/storybook-static/**',
         '**/e2e/**',
         '**/*.e2e.*',
         '**/test-utils/**',
         '**/mocks/**',
-        '**/__mocks__/**'
+        '**/__mocks__/**',
+        '**/setup-tests.*',
+        '**/test-setup.*'
       ],
     },
     discovery: {
@@ -102,10 +106,15 @@ describe('analyze-coverage exclude patterns', () => {
     expect(spawn).toHaveBeenCalled();
     const command = spawn.mock.calls[0][1] as string[];
     
-    // Verify that default exclude patterns are included
+    // Verify that default exclude patterns are included for BOTH test execution and coverage
+    // Test execution excludes
+    expect(command).toContain('--exclude=**/*.stories.*');
+    expect(command).toContain('--exclude=**/*.story.*');
+    expect(command).toContain('--exclude=**/.storybook/**');
+    // Coverage excludes
     expect(command).toContain('--coverage.exclude=**/*.stories.*');
     expect(command).toContain('--coverage.exclude=**/*.story.*');
-    expect(command).toContain('--coverage.exclude=**/e2e/**');
+    expect(command).toContain('--coverage.exclude=**/.storybook/**');
   });
 
   it('should allow custom exclude patterns to override defaults', async () => {
@@ -131,10 +140,13 @@ describe('analyze-coverage exclude patterns', () => {
     expect(spawn).toHaveBeenCalled();
     const command = spawn.mock.calls[0][1] as string[];
     
-    // Verify that custom exclude patterns are used instead of defaults
+    // Verify that custom exclude patterns are used for BOTH test execution and coverage
+    expect(command).toContain('--exclude=**/*.custom.*');
+    expect(command).toContain('--exclude=**/special/**');
     expect(command).toContain('--coverage.exclude=**/*.custom.*');
     expect(command).toContain('--coverage.exclude=**/special/**');
     // Should not contain default patterns when custom ones are provided
+    expect(command).not.toContain('--exclude=**/*.stories.*');
     expect(command).not.toContain('--coverage.exclude=**/*.stories.*');
   });
 });

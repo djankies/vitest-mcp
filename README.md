@@ -167,11 +167,15 @@ analyze_coverage({
 Default excludes automatically applied:
 - `**/*.stories.*` - Storybook story files
 - `**/*.story.*` - Alternative Storybook naming
+- `**/.storybook/**` - Storybook configuration directories
+- `**/storybook-static/**` - Built Storybook files
 - `**/e2e/**` - End-to-end test directories
 - `**/*.e2e.*` - E2E test files
 - `**/test-utils/**` - Test utility directories
 - `**/mocks/**` - Mock directories
 - `**/__mocks__/**` - Jest-style mock directories
+- `**/setup-tests.*` - Test setup files
+- `**/test-setup.*` - Alternative test setup naming
 
 ## Multi-Repository Workflow
 
