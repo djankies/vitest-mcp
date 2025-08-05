@@ -143,7 +143,6 @@ export async function handleRunTests(args) {
  * Build the Vitest command array
  */
 async function buildVitestCommand(args, projectRoot, targetPath, _format) {
-    const config = await getConfig();
     const command = ['npx', 'vitest', 'run']; // Always use run mode (never watch)
     // Use relative path from project root to target
     const relativePath = relative(projectRoot, targetPath);
@@ -188,7 +187,7 @@ async function executeCommand(command, cwd) {
             stderr += data.toString();
         });
         child.on('close', (code) => {
-            clearTimeout(timeout);
+            globalThis.clearTimeout(timeout);
             resolve({
                 stdout,
                 stderr,
@@ -196,7 +195,7 @@ async function executeCommand(command, cwd) {
             });
         });
         child.on('error', (error) => {
-            clearTimeout(timeout);
+            globalThis.clearTimeout(timeout);
             resolve({
                 stdout,
                 stderr: `Process error: ${error.message}`,

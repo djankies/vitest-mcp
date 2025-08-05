@@ -282,7 +282,7 @@ function transformCoverageData(rawFiles: Record<string, any>, targetPath?: strin
   let totalBranches = 0, coveredBranches = 0;
   let totalLines = 0, coveredLines = 0;
   
-  for (const [filePath, fileData] of Object.entries(relevantFiles)) {
+  for (const [, fileData] of Object.entries(relevantFiles)) {
     if (fileData.s) {
       const statements = Object.values(fileData.s) as number[];
       totalStatements += statements.length;
@@ -459,7 +459,7 @@ async function executeCommand(command: string[], cwd: string): Promise<CoverageE
     });
     
     child.on('close', (code) => {
-      clearTimeout(timeout);
+      (globalThis as any).clearTimeout(timeout);
       resolve({
         command: command.join(' '),
         success: code === 0,
@@ -471,7 +471,7 @@ async function executeCommand(command: string[], cwd: string): Promise<CoverageE
     });
     
     child.on('error', (error) => {
-      clearTimeout(timeout);
+      (globalThis as any).clearTimeout(timeout);
       resolve({
         command: command.join(' '),
         success: false,
@@ -487,9 +487,7 @@ async function executeCommand(command: string[], cwd: string): Promise<CoverageE
 /**
  * Create error analysis result with specific guidance based on error type
  */
-function createErrorAnalysis(error: unknown): CoverageAnalysisResult {
-  const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-  
+function createErrorAnalysis(_error: unknown): CoverageAnalysisResult {
   return {
     success: false,
     coverage: {

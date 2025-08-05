@@ -1,12 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { promises as fs } from 'fs';
 import { join, resolve } from 'path';
 import {
   fileExists,
   isDirectory,
   findTestFiles,
-  findProjectRoot,
-  type TestFile
+  findProjectRoot
 } from '../file-utils';
 
 vi.mock('fs', () => ({

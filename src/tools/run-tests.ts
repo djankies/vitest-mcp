@@ -258,7 +258,6 @@ export async function handleRunTests(args: RunTestsArgs): Promise<ProcessedTestR
  * Build the Vitest command array
  */
 async function buildVitestCommand(args: RunTestsArgs, projectRoot: string, targetPath: string, _format: TestFormat): Promise<string[]> {
-  const config = await getConfig();
   const command = ['npx', 'vitest', 'run']; // Always use run mode (never watch)
   
   // Use relative path from project root to target
@@ -319,7 +318,7 @@ async function executeCommand(command: string[], cwd: string): Promise<{
     });
     
     child.on('close', (code) => {
-      clearTimeout(timeout);
+      (globalThis as any).clearTimeout(timeout);
       resolve({
         stdout,
         stderr,
@@ -328,7 +327,7 @@ async function executeCommand(command: string[], cwd: string): Promise<{
     });
     
     child.on('error', (error) => {
-      clearTimeout(timeout);
+      (globalThis as any).clearTimeout(timeout);
       resolve({
         stdout,
         stderr: `Process error: ${error.message}`,

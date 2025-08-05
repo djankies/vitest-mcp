@@ -102,6 +102,7 @@ export async function parseCliArgs(args: string[]): Promise<Partial<VitestMCPCon
       case '-h':
         printHelp();
         process.exit(0);
+        break;
         
       // Version
       case '--version': {

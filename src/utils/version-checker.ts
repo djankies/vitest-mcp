@@ -120,14 +120,14 @@ async function getVersionFromCli(cwd: string): Promise<string | null> {
     });
 
     let stdout = '';
-    let stderr = '';
+    // stderr is captured but not used in version detection
 
     child.stdout?.on('data', (data) => {
       stdout += data.toString();
     });
 
-    child.stderr?.on('data', (data) => {
-      stderr += data.toString();
+    child.stderr?.on('data', () => {
+      // stderr captured but not used for version detection
     });
 
     const timeout = setTimeout(() => {
@@ -136,7 +136,7 @@ async function getVersionFromCli(cwd: string): Promise<string | null> {
     }, 5000);
 
     child.on('close', (code) => {
-      clearTimeout(timeout);
+      (globalThis as any).clearTimeout(timeout);
       
       if (code === 0 && stdout.trim()) {
         // Extract version from output like "vitest/1.2.3" or "1.2.3"
@@ -148,7 +148,7 @@ async function getVersionFromCli(cwd: string): Promise<string | null> {
     });
 
     child.on('error', () => {
-      clearTimeout(timeout);
+      (globalThis as any).clearTimeout(timeout);
       resolve(null);
     });
   });
