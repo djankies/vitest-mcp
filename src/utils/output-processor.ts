@@ -50,6 +50,24 @@ interface AssertionResult {
   failureDetails?: string[];
 }
 
+interface ParsedError {
+  type: string;
+  message: string;
+  expected?: unknown;
+  actual?: unknown;
+  testIntent?: string;
+  codeSnippet?: string[];
+  cleanStack: string[];
+  rawError?: string;
+}
+
+interface FailedTest {
+  file: string;
+  testName: string;
+  error: ParsedError;
+  duration?: number;
+}
+
 /**
  * Main output processor implementation
  */
@@ -239,7 +257,7 @@ export class VitestOutputProcessor implements OutputProcessor {
   /**
    * Extract test details from JSON data
    */
-  private extractTestDetailsFromJson(jsonData: any): string[] {
+  private extractTestDetailsFromJson(jsonData: VitestJsonResult): string[] {
     const details: string[] = [];
     
     for (const testResult of jsonData.testResults) {
@@ -261,7 +279,7 @@ export class VitestOutputProcessor implements OutputProcessor {
   /**
    * Extract failure details from JSON data
    */
-  private extractFailureDetailsFromJson(jsonData: any, concise: boolean = false): string[] {
+  private extractFailureDetailsFromJson(jsonData: VitestJsonResult, concise: boolean = false): string[] {
     const failures: string[] = [];
     
     for (const testResult of jsonData.testResults) {
@@ -380,7 +398,7 @@ export class VitestOutputProcessor implements OutputProcessor {
   /**
    * Clean JSON output for LLM consumption
    */
-  private cleanJsonForLLM(jsonData: VitestJsonResult): any {
+  private cleanJsonForLLM(jsonData: VitestJsonResult): Record<string, unknown> {
     return {
       success: jsonData.success,
       summary: {
@@ -411,26 +429,8 @@ export class VitestOutputProcessor implements OutputProcessor {
   private async parseError(
     errorMessage: string, 
     filePath: string
-  ): Promise<{
-    type: string;
-    message: string;
-    expected?: any;
-    actual?: any;
-    testIntent?: string;
-    codeSnippet?: string[];
-    cleanStack: string[];
-    rawError?: string;
-  }> {
-    const error: {
-      type: string;
-      message: string;
-      expected?: any;
-      actual?: any;
-      testIntent?: string;
-      codeSnippet?: string[];
-      cleanStack: string[];
-      rawError?: string;
-    } = {
+  ): Promise<ParsedError> {
+    const error: ParsedError = {
       type: 'Error',
       message: '',
       cleanStack: [],
@@ -515,7 +515,7 @@ export class VitestOutputProcessor implements OutputProcessor {
   /**
    * Parse a value string into appropriate type
    */
-  private parseValue(valueStr: string): any {
+  private parseValue(valueStr: string): unknown {
     // Remove quotes and try to parse as JSON
     const cleaned = valueStr.replace(/^['"`]|['"`]$/g, '');
     
@@ -658,7 +658,7 @@ export class VitestOutputProcessor implements OutputProcessor {
     // For detailed format: include detailed information about failing tests and summary of passing tests
     if (format === 'detailed') {
       // Build detailed information for failed tests only
-      const failedTests: any[] = [];
+      const failedTests: FailedTest[] = [];
 
       // Summary of passed tests by file
       const passedTestsSummary: Array<{
@@ -677,21 +677,7 @@ export class VitestOutputProcessor implements OutputProcessor {
             passedCount++;
             totalDuration += assertion.duration || 0;
           } else if (assertion.status === 'failed') {
-            const failedTest: {
-              file: string;
-              testName: string;
-              error: {
-                type: string;
-                message: string;
-                expected?: any;
-                actual?: any;
-                testIntent?: string;
-                codeSnippet?: string[];
-                cleanStack: string[];
-                rawError?: string;
-              };
-              duration?: number;
-            } = {
+            const failedTest: FailedTest = {
               file: fileName,
               testName: assertion.fullName || `${assertion.ancestorTitles.join(' › ')} › ${assertion.title}`,
               duration: assertion.duration ? Math.round(assertion.duration * 100) / 100 : undefined,

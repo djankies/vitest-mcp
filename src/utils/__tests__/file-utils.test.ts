@@ -44,7 +44,7 @@ describe('file-utils', () => {
     it('should return true for directories', async () => {
       vi.mocked(fs.stat).mockResolvedValue({
         isDirectory: () => true
-      } as any);
+      } as fs.Stats);
       
       const result = await isDirectory('/path/to/dir');
       
@@ -55,7 +55,7 @@ describe('file-utils', () => {
     it('should return false for files', async () => {
       vi.mocked(fs.stat).mockResolvedValue({
         isDirectory: () => false
-      } as any);
+      } as fs.Stats);
       
       const result = await isDirectory('/path/to/file');
       
@@ -91,9 +91,9 @@ describe('file-utils', () => {
       ];
 
       vi.mocked(fs.readdir)
-        .mockResolvedValueOnce(mockDirEntries as any)
-        .mockResolvedValueOnce(mockSrcEntries as any)
-        .mockResolvedValueOnce(mockTestsEntries as any);
+        .mockResolvedValueOnce(mockDirEntries as fs.Dirent[])
+        .mockResolvedValueOnce(mockSrcEntries as fs.Dirent[])
+        .mockResolvedValueOnce(mockTestsEntries as fs.Dirent[]);
 
       const result = await findTestFiles('/project');
 
@@ -120,9 +120,9 @@ describe('file-utils', () => {
       ];
 
       vi.mocked(fs.readdir)
-        .mockResolvedValueOnce(mockEntries as any)
-        .mockResolvedValueOnce(mockE2EEntries as any)
-        .mockResolvedValueOnce(mockIntegrationEntries as any);
+        .mockResolvedValueOnce(mockEntries as fs.Dirent[])
+        .mockResolvedValueOnce(mockE2EEntries as fs.Dirent[])
+        .mockResolvedValueOnce(mockIntegrationEntries as fs.Dirent[]);
 
       const result = await findTestFiles('/project');
 
@@ -140,7 +140,7 @@ describe('file-utils', () => {
         { name: 'test.spec.ts', isDirectory: () => false, isFile: () => true }
       ];
 
-      vi.mocked(fs.readdir).mockResolvedValueOnce(mockEntries as any);
+      vi.mocked(fs.readdir).mockResolvedValueOnce(mockEntries as fs.Dirent[]);
 
       const result = await findTestFiles('/project');
 

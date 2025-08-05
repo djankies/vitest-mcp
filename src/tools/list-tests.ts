@@ -44,7 +44,7 @@ export async function handleListTests(args: ListTestsArgs): Promise<ListTestsRes
     let projectRoot: string;
     try {
       projectRoot = projectContext.getProjectRoot();
-    } catch (error) {
+    } catch {
       throw new Error('Project root has not been set. Please use the set_project_root tool first to specify which repository to work with.');
     }
     const searchPath = args.path ? resolve(projectRoot, args.path) : projectRoot;

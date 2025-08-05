@@ -136,7 +136,7 @@ async function getVersionFromCli(cwd: string): Promise<string | null> {
     }, 5000);
 
     child.on('close', (code) => {
-      (globalThis as any).clearTimeout(timeout);
+      clearTimeout(timeout);
       
       if (code === 0 && stdout.trim()) {
         // Extract version from output like "vitest/1.2.3" or "1.2.3"
@@ -148,7 +148,7 @@ async function getVersionFromCli(cwd: string): Promise<string | null> {
     });
 
     child.on('error', () => {
-      (globalThis as any).clearTimeout(timeout);
+      clearTimeout(timeout);
       resolve(null);
     });
   });

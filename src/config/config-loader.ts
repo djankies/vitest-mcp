@@ -39,7 +39,7 @@ const DEFAULT_CONFIG: ResolvedVitestMCPConfig = {
     maxFiles: 100,
     requireConfirmation: true,
     allowedRunners: ['vitest'],
-    allowedPaths: undefined as any, // No restriction by default, will be resolved correctly
+    allowedPaths: undefined!, // No restriction by default, will be resolved correctly
   },
 };
 
@@ -95,7 +95,7 @@ async function loadConfigFile(cliConfigPath?: string): Promise<VitestMCPConfig |
       return JSON.parse(content);
     } catch (error) {
       // File not found is expected, continue searching
-      if ((error as any).code !== 'ENOENT') {
+      if ((error as { code?: string }).code !== 'ENOENT') {
         console.error(`Error reading ${configPath}:`, error);
       }
     }
@@ -107,18 +107,24 @@ async function loadConfigFile(cliConfigPath?: string): Promise<VitestMCPConfig |
 /**
  * Deep merge configuration objects
  */
-function mergeConfig(base: any, override: any): any {
-  const result = { ...base };
+function mergeConfig(base: ResolvedVitestMCPConfig, override: VitestMCPConfig): ResolvedVitestMCPConfig {
+  const result = { ...base } as ResolvedVitestMCPConfig;
   
   for (const key in override) {
-    if (override[key] === null || override[key] === undefined) {
+    const overrideValue = (override as Record<string, unknown>)[key];
+    if (overrideValue === null || overrideValue === undefined) {
       continue;
     }
     
-    if (typeof override[key] === 'object' && !Array.isArray(override[key])) {
-      result[key] = mergeConfig(base[key] || {}, override[key]);
+    const baseValue = (base as Record<string, unknown>)[key];
+    if (typeof overrideValue === 'object' && !Array.isArray(overrideValue) && 
+        typeof baseValue === 'object' && !Array.isArray(baseValue)) {
+      (result as Record<string, unknown>)[key] = mergeConfig(
+        baseValue as ResolvedVitestMCPConfig, 
+        overrideValue as VitestMCPConfig
+      );
     } else {
-      result[key] = override[key];
+      (result as Record<string, unknown>)[key] = overrideValue;
     }
   }
   
@@ -148,15 +154,15 @@ export async function loadConfiguration(cliArgs?: string[]): Promise<ResolvedVit
     let merged = DEFAULT_CONFIG;
     
     if (fileConfig) {
-      merged = mergeConfig(merged, fileConfig) as ResolvedVitestMCPConfig;
+      merged = mergeConfig(merged, fileConfig);
     }
     
     // Apply environment variable overrides
     const envConfig = loadEnvironmentConfig();
-    merged = mergeConfig(merged, envConfig) as ResolvedVitestMCPConfig;
+    merged = mergeConfig(merged, envConfig);
     
     // Apply CLI overrides (highest priority)
-    merged = mergeConfig(merged, cliConfig) as ResolvedVitestMCPConfig;
+    merged = mergeConfig(merged, cliConfig);
     
     return merged;
   } catch (error) {
@@ -174,7 +180,7 @@ function loadEnvironmentConfig(): Partial<VitestMCPConfig> {
   // Test defaults
   if (process.env.VITEST_MCP_TEST_FORMAT) {
     config.testDefaults = config.testDefaults || {};
-    config.testDefaults.format = process.env.VITEST_MCP_TEST_FORMAT as any;
+    config.testDefaults.format = process.env.VITEST_MCP_TEST_FORMAT as 'summary' | 'detailed';
   }
   
   

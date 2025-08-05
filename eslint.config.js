@@ -16,7 +16,9 @@ export default [
         console: 'readonly',
         process: 'readonly',
         setTimeout: 'readonly',
+        clearTimeout: 'readonly',
         Buffer: 'readonly',
+        global: 'readonly',
       },
     },
     plugins: {

@@ -100,7 +100,7 @@ export async function handleAnalyzeCoverage(args: AnalyzeCoverageArgs): Promise<
     let projectRoot: string;
     try {
       projectRoot = projectContext.getProjectRoot();
-    } catch (error) {
+    } catch {
       throw new Error('Project root has not been set. Please use the set_project_root tool first to specify which repository to work with.');
     }
     const targetPath = resolve(projectRoot, args.target);
@@ -258,9 +258,43 @@ async function executeCoverageAnalysis(
 /**
  * Transform raw coverage file data to expected RawCoverageData format
  */
-function transformCoverageData(rawFiles: Record<string, any>, targetPath?: string): RawCoverageData {
+interface StatementMapping {
+  start?: {
+    line?: number;
+  };
+}
+
+interface FunctionMapping {
+  name?: string;
+  decl?: {
+    start?: {
+      line?: number;
+    };
+  };
+}
+
+interface BranchMapping {
+  loc?: {
+    start?: {
+      line?: number;
+    };
+  };
+}
+
+interface CoverageFileData {
+  path: string;
+  statementMap: Record<string, StatementMapping>;
+  fnMap: Record<string, FunctionMapping>;
+  branchMap: Record<string, BranchMapping>;
+  s: Record<string, number>;
+  f: Record<string, number>;
+  b: Record<string, number[]>;
+  inputSourceMap?: unknown;
+}
+
+function transformCoverageData(rawFiles: Record<string, CoverageFileData>, targetPath?: string): RawCoverageData {
   // Filter files to only include relevant ones - exclude test files and irrelevant project files
-  const relevantFiles: Record<string, any> = {};
+  const relevantFiles: Record<string, CoverageFileData> = {};
   
   for (const [filePath, fileData] of Object.entries(rawFiles)) {
     // Skip test files
@@ -464,7 +498,7 @@ async function executeCommand(command: string[], cwd: string): Promise<CoverageE
     });
     
     child.on('close', (code) => {
-      (globalThis as any).clearTimeout(timeout);
+      clearTimeout(timeout);
       resolve({
         command: command.join(' '),
         success: code === 0,
@@ -476,7 +510,7 @@ async function executeCommand(command: string[], cwd: string): Promise<CoverageE
     });
     
     child.on('error', (error) => {
-      (globalThis as any).clearTimeout(timeout);
+      clearTimeout(timeout);
       resolve({
         command: command.join(' '),
         success: false,

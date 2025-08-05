@@ -90,8 +90,8 @@ export interface StructuredTestResult {
     error: {
       type: string;
       message: string;
-      expected?: any;
-      actual?: any;
+      expected?: unknown;
+      actual?: unknown;
       testIntent?: string;
       codeSnippet?: string[];
       cleanStack: string[];
@@ -175,7 +175,7 @@ export async function handleRunTests(args: RunTestsArgs): Promise<ProcessedTestR
     let projectRoot: string;
     try {
       projectRoot = projectContext.getProjectRoot();
-    } catch (error) {
+    } catch {
       throw new Error('Project root has not been set. Please use the set_project_root tool first to specify which repository to work with.');
     }
     const targetPath = resolve(projectRoot, args.target);
@@ -323,7 +323,7 @@ async function executeCommand(command: string[], cwd: string): Promise<{
     });
     
     child.on('close', (code) => {
-      (globalThis as any).clearTimeout(timeout);
+      clearTimeout(timeout);
       resolve({
         stdout,
         stderr,
@@ -332,7 +332,7 @@ async function executeCommand(command: string[], cwd: string): Promise<{
     });
     
     child.on('error', (error) => {
-      (globalThis as any).clearTimeout(timeout);
+      clearTimeout(timeout);
       resolve({
         stdout,
         stderr: `Process error: ${error.message}`,

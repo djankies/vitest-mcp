@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { handleListTests, listTestsTool } from '../list-tests';
 import * as fileUtils from '../../utils/file-utils';
+import { projectContext } from '../../context/project-context';
 
 vi.mock('../../utils/file-utils', () => ({
   findTestFiles: vi.fn(),
@@ -9,9 +10,18 @@ vi.mock('../../utils/file-utils', () => ({
   isDirectory: vi.fn()
 }));
 
+vi.mock('../../context/project-context', () => ({
+  projectContext: {
+    getProjectRoot: vi.fn(),
+    reset: vi.fn()
+  }
+}));
+
 describe('list-tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset project context for clean state between tests
+    vi.mocked(projectContext.reset).mockImplementation(() => {});
   });
 
   describe('listTestsTool', () => {
@@ -37,7 +47,7 @@ describe('list-tests', () => {
         { path: '/project/src/test2.spec.js', relativePath: 'src/test2.spec.js', type: 'unit' as const }
       ];
 
-      vi.mocked(fileUtils.findProjectRoot).mockResolvedValue('/project');
+      vi.mocked(projectContext.getProjectRoot).mockReturnValue('/project');
       vi.mocked(fileUtils.fileExists).mockResolvedValue(true);
       vi.mocked(fileUtils.isDirectory).mockResolvedValue(true);
       vi.mocked(fileUtils.findTestFiles).mockResolvedValue(mockTestFiles);
@@ -58,7 +68,7 @@ describe('list-tests', () => {
         { path: '/project/src/utils/test.test.ts', relativePath: 'test.test.ts', type: 'unit' as const }
       ];
 
-      vi.mocked(fileUtils.findProjectRoot).mockResolvedValue('/project');
+      vi.mocked(projectContext.getProjectRoot).mockReturnValue('/project');
       vi.mocked(fileUtils.fileExists).mockResolvedValue(true);
       vi.mocked(fileUtils.isDirectory).mockResolvedValue(true);
       vi.mocked(fileUtils.findTestFiles).mockResolvedValue(mockTestFiles);
@@ -70,7 +80,7 @@ describe('list-tests', () => {
     });
 
     it('should throw error if search path does not exist', async () => {
-      vi.mocked(fileUtils.findProjectRoot).mockResolvedValue('/project');
+      vi.mocked(projectContext.getProjectRoot).mockReturnValue('/project');
       vi.mocked(fileUtils.fileExists).mockResolvedValue(false);
 
       await expect(handleListTests({ path: 'nonexistent' })).rejects.toThrow(
@@ -79,7 +89,7 @@ describe('list-tests', () => {
     });
 
     it('should throw error if search path is not a directory', async () => {
-      vi.mocked(fileUtils.findProjectRoot).mockResolvedValue('/project');
+      vi.mocked(projectContext.getProjectRoot).mockReturnValue('/project');
       vi.mocked(fileUtils.fileExists).mockResolvedValue(true);
       vi.mocked(fileUtils.isDirectory).mockResolvedValue(false);
 
@@ -89,7 +99,7 @@ describe('list-tests', () => {
     });
 
     it('should handle findTestFiles errors', async () => {
-      vi.mocked(fileUtils.findProjectRoot).mockResolvedValue('/project');
+      vi.mocked(projectContext.getProjectRoot).mockReturnValue('/project');
       vi.mocked(fileUtils.fileExists).mockResolvedValue(true);
       vi.mocked(fileUtils.isDirectory).mockResolvedValue(true);
       vi.mocked(fileUtils.findTestFiles).mockRejectedValue(new Error('Permission denied'));
@@ -100,7 +110,7 @@ describe('list-tests', () => {
     });
 
     it('should handle empty test file results', async () => {
-      vi.mocked(fileUtils.findProjectRoot).mockResolvedValue('/project');
+      vi.mocked(projectContext.getProjectRoot).mockReturnValue('/project');
       vi.mocked(fileUtils.fileExists).mockResolvedValue(true);
       vi.mocked(fileUtils.isDirectory).mockResolvedValue(true);
       vi.mocked(fileUtils.findTestFiles).mockResolvedValue([]);
@@ -123,7 +133,7 @@ describe('list-tests', () => {
         { path: '/project/random.test.ts', relativePath: 'random.test.ts', type: 'unknown' as const }
       ];
 
-      vi.mocked(fileUtils.findProjectRoot).mockResolvedValue('/project');
+      vi.mocked(projectContext.getProjectRoot).mockReturnValue('/project');
       vi.mocked(fileUtils.fileExists).mockResolvedValue(true);
       vi.mocked(fileUtils.isDirectory).mockResolvedValue(true);
       vi.mocked(fileUtils.findTestFiles).mockResolvedValue(mockTestFiles);

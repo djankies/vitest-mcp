@@ -1,7 +1,7 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { projectContext } from '../context/project-context.js';
 import { getConfig } from '../config/config-loader.js';
-import { resolve, relative } from 'path';
+import { resolve } from 'path';
 
 /**
  * Tool for setting the project root directory

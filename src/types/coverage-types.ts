@@ -92,17 +92,40 @@ export interface AnalyzeCoverageArgs {
   thresholds?: CoverageThreshold;
 }
 
+interface StatementMapping {
+  start?: {
+    line?: number;
+  };
+}
+
+interface FunctionMapping {
+  name?: string;
+  decl?: {
+    start?: {
+      line?: number;
+    };
+  };
+}
+
+interface BranchMapping {
+  loc?: {
+    start?: {
+      line?: number;
+    };
+  };
+}
+
 export interface RawCoverageData {
   // Raw Vitest coverage JSON structure
   files: Record<string, {
     path: string;
-    statementMap: Record<string, any>;
-    fnMap: Record<string, any>;
-    branchMap: Record<string, any>;
+    statementMap: Record<string, StatementMapping>;
+    fnMap: Record<string, FunctionMapping>;
+    branchMap: Record<string, BranchMapping>;
     s: Record<string, number>;
     f: Record<string, number>;
     b: Record<string, number[]>;
-    inputSourceMap?: any;
+    inputSourceMap?: unknown;
   }>;
   summary: {
     lines: { total: number; covered: number; skipped: number; pct: number };
