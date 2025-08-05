@@ -304,6 +304,12 @@ Create a `.vitest-mcp.json` file in your home directory or project root:
 
 ## Troubleshooting
 
+### Storybook Configuration Errors
+
+If you encounter errors like `TypeError: Cannot create property 'exclude' on boolean 'true'` when running coverage analysis on projects with Storybook, this is typically caused by configuration conflicts. See [STORYBOOK_ISSUES.md](docs/STORYBOOK_ISSUES.md) for detailed solutions.
+
+**Quick Fix**: Create a separate minimal Vitest config for coverage that doesn't load Storybook configuration.
+
 ### Version Issues
 
 ```bash
