@@ -413,6 +413,16 @@ async function buildCoverageCommand(
 ): Promise<string[]> {
   const command = ['npx', 'vitest', 'run'];
   
+  // IMPORTANT: Add exclusions FIRST, before any other flags
+  // This helps prevent Vitest from loading config files that might cause issues
+  // Add exclude patterns if provided
+  if (args.exclude && args.exclude.length > 0) {
+    // Add each pattern separately for test exclusion
+    for (const pattern of args.exclude) {
+      command.push('--exclude', pattern);
+    }
+  }
+  
   // If targeting a source file, find its corresponding test file
   if (!targetPath.includes('.test.') && !targetPath.includes('.spec.') && !targetPath.includes('__tests__')) {
     // Look for corresponding test files
@@ -452,16 +462,17 @@ async function buildCoverageCommand(
   // Enable coverage
   command.push('--coverage');
   
-  // Add exclude patterns if provided
-  // These patterns need to be applied to BOTH test execution and coverage
+  // Add coverage exclude patterns if provided
+  // Note: test exclusions were already added at the beginning of the command
   if (args.exclude && args.exclude.length > 0) {
+    // Add each pattern separately for coverage exclusion
     for (const pattern of args.exclude) {
-      // Exclude from test execution (prevents Vitest from running these files)
-      command.push(`--exclude=${pattern}`);
-      // Also exclude from coverage reporting
-      command.push(`--coverage.exclude=${pattern}`);
+      command.push('--coverage.exclude', pattern);
     }
   }
+  
+  // Add passWithNoTests flag to prevent errors if no tests match after exclusions
+  command.push('--passWithNoTests');
   
   // Use JSON reporter for structured output
   command.push('--reporter=json');
