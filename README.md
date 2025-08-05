@@ -124,15 +124,16 @@ analyze_coverage({
 
 Automatically intercept Vitest commands and suggest MCP tools.
 
-### Setup
+### Copy hook script
 
 ```bash
-# Copy hook script
 curl -o .claude/vitest-hook.sh https://raw.githubusercontent.com/djankies/vitest-mcp/main/hooks/vitest-hook.sh
 chmod +x .claude/vitest-hook.sh
+```
 
-# Update .claude/settings.local.json
-cat << 'EOF' > .claude/settings.local.json
+### Update .claude/settings.local.json
+
+```json
 {
   "hooks": {
     "PreToolUse": [
@@ -148,17 +149,6 @@ cat << 'EOF' > .claude/settings.local.json
     ]
   }
 }
-EOF
-```
-
-### Result
-
-```bash
-# Before: Raw Vitest command
-npx vitest run src/components/
-
-# After: Hook suggests MCP tool
-🔄 Using run_tests MCP tool for better AI integration...
 ```
 
 ## Configuration Options
@@ -182,7 +172,7 @@ npx vitest run src/components/
 
 ### Available CLI Options
 
-- `--format <summary|detailed>` - Output format
+- `--format <summary|detailed>` - Default output format
 - `--timeout <ms>` - Test timeout (default: 30000)
 - `--verbose` - Debug information
 
