@@ -1,5 +1,7 @@
 import { defineConfig } from 'vitest/config';
 
+// Separate vitest configuration for vitest-local MCP tools
+// This config allows access to all tests including test-validation directory
 export default defineConfig({
   test: {
     // Support both node and browser environments
@@ -7,13 +9,7 @@ export default defineConfig({
     environmentMatchGlobs: [
       ['**/browser/**', 'jsdom']
     ],
-    // Exclude test-validation directory from npm test runs
-    exclude: [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/coverage/**',
-      '**/test-validation/**'
-    ],
+    // No exclusions - MCP tools should access all tests
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
