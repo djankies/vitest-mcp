@@ -18,6 +18,8 @@
     "test-coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "ci": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "publish:beta": "npm run ci && npm version prerelease --preid=beta && git push origin develop --tags && npm publish --tag beta",
+    "publish:release": "npm run ci && npm version patch && git push origin develop --tags && npm publish",
     "prepare": "husky"
   },
   "keywords": [

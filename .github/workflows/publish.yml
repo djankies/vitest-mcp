@@ -1,91 +1,261 @@
-name: Publish to npm
+name: Release and Publish
 
 on:
   push:
     tags:
       - 'v*'
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version to publish (leave empty to use package.json version)'
+      release_type:
+        description: 'Release type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - prerelease
+        default: patch
+      prerelease:
+        description: 'Prerelease identifier (beta/alpha/rc) - only used with prerelease type'
         required: false
-        type: string
+        type: choice
+        options:
+          - beta
+          - alpha
+          - rc
+        default: beta
+      branch:
+        description: 'Branch to release from'
+        required: false
+        type: choice
+        options:
+          - main
+          - develop
+        default: main
+      publish:
+        description: 'Publish to npm'
+        required: true
+        type: boolean
+        default: true
 
 jobs:
-  publish:
+  release-and-publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # Changed from 'read' to 'write' to allow creating releases
-      id-token: write
+      contents: write
+      id-token: write # Required for OIDC token to authenticate with npm
+      pull-requests: write
+    
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      npm_tag: ${{ steps.version.outputs.npm_tag }}
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.branch || github.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
-
-      - name: Update npm
-        run: npm install -g npm@latest
+          
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
           
       - name: Install dependencies
         run: npm ci
+        
+      - name: Run tests
+        run: npm test
         
       - name: Run linting
         run: npm run lint
         
       - name: Build package
-        run: npm run build --if-present
+        run: npm run build
         
-      - name: Run tests
-        run: npm test
-      
-      - name: Get version
+      - name: Process version and npm tag
         id: version
         run: |
-          if [ "${{ github.event_name }}" == "push" ] && [ -n "${{ github.ref_name }}" ]; then
-            # For tag pushes, extract version from tag
+          if [ "${{ github.event_name }}" == "push" ] && [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            # Tag push - extract version from tag
             VERSION="${{ github.ref_name }}"
             VERSION="${VERSION#v}"  # Remove 'v' prefix if present
-          elif [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
-            # For manual triggers with version input
-            VERSION="${{ github.event.inputs.version }}"
-            npm version $VERSION --no-git-tag-version
+            
+            # Determine npm tag based on version
+            if [[ "$VERSION" == *"-beta."* ]]; then
+              NPM_TAG="beta"
+              IS_PRERELEASE=true
+            elif [[ "$VERSION" == *"-alpha."* ]]; then
+              NPM_TAG="alpha"
+              IS_PRERELEASE=true
+            elif [[ "$VERSION" == *"-rc."* ]]; then
+              NPM_TAG="rc"
+              IS_PRERELEASE=true
+            else
+              NPM_TAG="latest"
+              IS_PRERELEASE=false
+            fi
+            
+            echo "mode=tag_push" >> $GITHUB_OUTPUT
+            echo "should_create_release=false" >> $GITHUB_OUTPUT
+            
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            # Manual workflow dispatch - create new version
+            if [ "${{ github.event.inputs.release_type }}" == "prerelease" ]; then
+              NEW_VERSION=$(npm version prerelease --preid=${{ github.event.inputs.prerelease }} --no-git-tag-version)
+              NPM_TAG="${{ github.event.inputs.prerelease }}"
+              IS_PRERELEASE=true
+            else
+              NEW_VERSION=$(npm version ${{ github.event.inputs.release_type }} --no-git-tag-version)
+              NPM_TAG="latest"
+              IS_PRERELEASE=false
+            fi
+            
+            VERSION="${NEW_VERSION}"
+            
+            echo "mode=workflow_dispatch" >> $GITHUB_OUTPUT
+            echo "should_create_release=true" >> $GITHUB_OUTPUT
+            
           else
-            # Default to package.json version
-            VERSION=$(node -p "require('./package.json').version")
+            echo "Unsupported trigger event: ${{ github.event_name }}"
+            exit 1
           fi
+          
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=v$VERSION" >> $GITHUB_OUTPUT
-          echo "Detected version: $VERSION"
-        
-      - name: Publish to npm
-        run: npm publish --access public
+          echo "npm_tag=$NPM_TAG" >> $GITHUB_OUTPUT
+          echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
           
-      # Only create release for manual triggers, not for tag pushes
-      # (tag pushes are usually created by the release workflow)
-      - name: Create GitHub Release (manual trigger only)
-        if: github.event_name == 'workflow_dispatch'
+          echo "Detected version: $VERSION"
+          echo "npm tag: $NPM_TAG"
+          echo "Is prerelease: $IS_PRERELEASE"
+          
+      - name: Generate changelog (for workflow dispatch only)
+        if: steps.version.outputs.mode == 'workflow_dispatch'
+        run: |
+          # Get the latest tag to compare against
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+          
+          # Generate changelog from git commits
+          echo "## Changes in ${{ steps.version.outputs.version }}" > RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          
+          if [ -n "$PREVIOUS_TAG" ]; then
+            echo "### 📝 Recent Changes" >> RELEASE_NOTES.md
+            echo "" >> RELEASE_NOTES.md
+            
+            # Extract commits since last tag, categorized by conventional commit format
+            git log --pretty=format:"- %s" ${PREVIOUS_TAG}..HEAD | grep -E '^- (feat|fix|docs|style|refactor|test|chore):' | while read line; do
+              if [[ "$line" =~ ^-\ feat: ]]; then
+                echo "🚀 ${line#- feat: }" >> temp_features.md
+              elif [[ "$line" =~ ^-\ fix: ]]; then
+                echo "🐛 ${line#- fix: }" >> temp_fixes.md
+              elif [[ "$line" =~ ^-\ docs: ]]; then
+                echo "📚 ${line#- docs: }" >> temp_docs.md
+              elif [[ "$line" =~ ^-\ (refactor|style|test|chore): ]]; then
+                echo "🔧 ${line#- *: }" >> temp_improvements.md
+              fi
+            done
+            
+            # Add sections if files exist
+            if [ -f temp_features.md ]; then
+              echo "#### 🚀 New Features" >> RELEASE_NOTES.md
+              cat temp_features.md >> RELEASE_NOTES.md
+              echo "" >> RELEASE_NOTES.md
+              rm temp_features.md
+            fi
+            
+            if [ -f temp_fixes.md ]; then
+              echo "#### 🐛 Bug Fixes" >> RELEASE_NOTES.md
+              cat temp_fixes.md >> RELEASE_NOTES.md
+              echo "" >> RELEASE_NOTES.md
+              rm temp_fixes.md
+            fi
+            
+            if [ -f temp_improvements.md ]; then
+              echo "#### 🔧 Improvements" >> RELEASE_NOTES.md
+              cat temp_improvements.md >> RELEASE_NOTES.md
+              echo "" >> RELEASE_NOTES.md
+              rm temp_improvements.md
+            fi
+            
+            if [ -f temp_docs.md ]; then
+              echo "#### 📚 Documentation" >> RELEASE_NOTES.md
+              cat temp_docs.md >> RELEASE_NOTES.md
+              echo "" >> RELEASE_NOTES.md
+              rm temp_docs.md
+            fi
+            
+            # If no conventional commits found, show all commits
+            if ! grep -q "###" RELEASE_NOTES.md; then
+              echo "#### Changes" >> RELEASE_NOTES.md
+              git log --pretty=format:"- %s" ${PREVIOUS_TAG}..HEAD >> RELEASE_NOTES.md
+              echo "" >> RELEASE_NOTES.md
+            fi
+          else
+            echo "### 🎉 Initial Release" >> RELEASE_NOTES.md
+            echo "" >> RELEASE_NOTES.md
+            echo "First release of the Vitest MCP server." >> RELEASE_NOTES.md
+            echo "" >> RELEASE_NOTES.md
+          fi
+          
+          # Add installation instructions
+          cat >> RELEASE_NOTES.md << 'EOF'
+          ### 📦 Installation
+          
+          ```bash
+          npx -y @djankies/vitest-mcp@${{ steps.version.outputs.version }}
+          ```
+          
+          ### 🔗 Claude Desktop Configuration
+          
+          ```json
+          {
+            "mcpServers": {
+              "vitest": {
+                "command": "npx",
+                "args": ["-y", "@djankies/vitest-mcp@${{ steps.version.outputs.version }}"]
+              }
+            }
+          }
+          ```
+          EOF
+          
+      - name: Commit version bump and create tag (for workflow dispatch only)
+        if: steps.version.outputs.mode == 'workflow_dispatch'
+        run: |
+          git add package.json package-lock.json
+          git commit -m "chore: bump version to ${{ steps.version.outputs.version }}"
+          git tag ${{ steps.version.outputs.tag }}
+          
+      - name: Push changes (for workflow dispatch only)
+        if: steps.version.outputs.mode == 'workflow_dispatch'
+        run: |
+          git push origin ${{ github.event.inputs.branch || 'main' }}
+          git push origin ${{ steps.version.outputs.tag }}
+          
+      - name: Create GitHub Release
+        if: steps.version.outputs.should_create_release == 'true'
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           release_name: Release ${{ steps.version.outputs.tag }}
-          body: |
-            ## Changes
-            
-            Manual release of version ${{ steps.version.outputs.version }}
-            
-            ## Installation
-            
-            ```bash
-            npx -y @djankies/vitest-mcp@${{ steps.version.outputs.version }}
-            ```
+          body_path: RELEASE_NOTES.md
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.version.outputs.is_prerelease }}
+          
+      - name: Publish to npm
+        if: github.event.inputs.publish != 'false'
+        run: npm publish --provenance --access public --tag ${{ steps.version.outputs.npm_tag }}
