@@ -13,6 +13,9 @@
     "start": "node dist/index.js",
     "lint": "eslint src --ext .ts",
     "test": "vitest run",
+    "test:unit": "vitest run src/tools",
+    "test:integration": "vitest run src/__tests__/integration",
+    "test-coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "ci": "npm run typecheck && npm run lint && npm run test && npm run build",
     "prepare": "husky"
