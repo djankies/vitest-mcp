@@ -1,6 +1,6 @@
 # Vitest MCP Server
 
-AI-optimized Vitest interface with structured output, visual debugging, and intelligent coverage analysis.
+**Next-generation AI-optimized Vitest interface** with plugin architecture and intelligent coverage analysis.
 
 ## Why Use This?
 
@@ -10,14 +10,27 @@ Raw Vitest output is verbose and difficult for AI to parse. This MCP server prov
 - **Smart targeting** to prevent accidental full test suite runs
 - **Console log capture** to debug test failures
 - **Coverage gap analysis** with line-by-line insights
+- **Extensible plugin architecture** for custom tools
+
+## Architecture Overview
+
+The server has been completely refactored around a **type-safe plugin architecture** that provides:
+
+### 🏗️ Plugin System (v2.0)
+
+- **Type Safety**: Compile-time and runtime validation for all operations
+- **Extensible Design**: Easy addition of new tools without code changes
+- **Error Handling**: Comprehensive error management with user-friendly hints
+
 
 ## Key Features
 
 - **Smart Test Execution** with structured output
 - **Console Log Capture** for debugging (`showLogs` parameter)
-- **Coverage Analysis** with gap insights
-- **Multi-Repository Support** in single session
-- **Safety Guards** prevent full project runs
+- **Coverage Analysis** with gap insights and threshold validation
+- **Multi-Repository Support** in single session with context switching
+- **Safety Guards** prevent full project runs and resource exhaustion
+- **Development Mode** with enhanced debugging tools
 
 ## Quick Start
 
@@ -115,6 +128,7 @@ Analyze test coverage with gap insights.
 
 Automatically excludes test utilities, mocks, stories, and e2e files.
 
+
 ## Multi-Repository Support
 
 ```javascript
@@ -157,6 +171,37 @@ Bypass with: `vitest --bypass-hook`
 Encourage claude or your ide to use the tools correctly: [CLAUDE.example.md](./CLAUDE.example.md)
 
 ## Configuration
+
+### Vitest Configuration Priority
+
+The MCP server automatically detects and uses Vitest configuration files in the following priority order:
+
+1. `vitest.mcp.config.ts` - **MCP-specific configuration** (highest priority)
+2. `vitest.config.ts`
+3. `vitest.config.js`
+4. `vitest.config.mjs`
+5. `vite.config.ts` (if it contains test configuration)
+6. `vite.config.js` (if it contains test configuration)
+7. `vite.config.mjs` (if it contains test configuration)
+
+This allows you to have a dedicated MCP-specific configuration that won't interfere with your regular development workflow:
+
+```typescript
+// vitest.mcp.config.ts
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    // MCP-specific settings
+    reporters: ['json'],
+    coverage: {
+      enabled: true,
+      provider: 'v8',
+      reporter: ['json', 'html'],
+    },
+  },
+});
+```
 
 ### Coverage Thresholds
 
@@ -225,6 +270,46 @@ Configuration is merged in the following order (highest priority first):
 2. Environment variables
 3. Configuration file
 4. Built-in defaults
+
+## Development Mode & Debugging
+
+### Enable Debug Mode
+
+Set the debug environment variable for detailed logging:
+
+```bash
+export VITEST_MCP_DEBUG=true
+```
+
+Or in Claude Desktop configuration:
+
+```json
+{
+  "mcpServers": {
+    "vitest": {
+      "command": "npx",
+      "args": ["-y", "@djankies/vitest-mcp"],
+      "env": {
+        "VITEST_MCP_DEBUG": "true"
+      }
+    }
+  }
+}
+```
+
+
+### Development Mode Features
+
+Enable development mode to test the server on its own codebase:
+
+```bash
+# Set in .env.development
+VITEST_MCP_DEV_MODE=true
+```
+
+This enables:
+- Self-testing capabilities
+- Enhanced debugging output
 
 ## Troubleshooting
 
