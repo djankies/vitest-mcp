@@ -47,7 +47,7 @@ export async function handleListTests(
     try {
       projectRoot = projectContext.getProjectRoot();
     } catch {
-      return "Please call set_project_root first" as unknown as ListTestsResult;
+      throw new Error("Please call set_project_root first");
     }
     const searchPath = args.path
       ? resolve(projectRoot, args.path)
