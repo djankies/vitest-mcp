@@ -43,6 +43,9 @@ export async function handleSetProjectRoot(args: SetProjectRootArgs): Promise<Se
     }
 
     const requestedPath = args.path.trim();
+    
+    // Resolve relative paths to absolute paths
+    const resolvedPath = resolve(requestedPath);
 
     
     const config = await getConfig();
@@ -58,11 +61,10 @@ export async function handleSetProjectRoot(args: SetProjectRootArgs): Promise<Se
       
       for (const allowedPath of allowedPaths) {
         const resolvedAllowedPath = resolve(allowedPath);
-        const resolvedRequestedPath = resolve(requestedPath);
         
         
-        if (resolvedRequestedPath === resolvedAllowedPath || 
-            resolvedRequestedPath.startsWith(resolvedAllowedPath + '/')) {
+        if (resolvedPath === resolvedAllowedPath || 
+            resolvedPath.startsWith(resolvedAllowedPath + '/')) {
           isAllowed = true;
           break;
         }
@@ -76,7 +78,7 @@ export async function handleSetProjectRoot(args: SetProjectRootArgs): Promise<Se
       
       if (!isAllowed) {
         throw new Error(
-          `Access denied: Path "${requestedPath}" is outside allowed directories. ` +
+          `Access denied: Path "${resolvedPath}" is outside allowed directories. ` +
           `Allowed paths: ${restrictionMessage}. ` +
           `Configure allowedPaths in your .vitest-mcp.json to change this restriction.`
         );
@@ -84,7 +86,7 @@ export async function handleSetProjectRoot(args: SetProjectRootArgs): Promise<Se
     }
 
     
-    await projectContext.setProjectRoot(requestedPath);
+    await projectContext.setProjectRoot(resolvedPath);
     
     
     const projectInfo = projectContext.getProjectInfo();

@@ -17,8 +17,13 @@ export default [
         process: 'readonly',
         setTimeout: 'readonly',
         clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
         Buffer: 'readonly',
         global: 'readonly',
+        performance: 'readonly',
+        NodeJS: 'readonly',
+        require: 'readonly',
       },
     },
     plugins: {

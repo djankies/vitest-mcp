@@ -19,26 +19,8 @@ import {
   ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
-import {
-  listTestsTool,
-  handleListTests,
-  ListTestsArgs,
-} from "./tools/list-tests.js";
-import {
-  runTestsTool,
-  handleRunTests,
-  RunTestsArgs,
-} from "./tools/run-tests.js";
-import {
-  analyzeCoverageTool,
-  handleAnalyzeCoverage,
-} from "./tools/analyze-coverage.js";
-import { AnalyzeCoverageArgs } from "./types/coverage-types.js";
-import {
-  setProjectRootTool,
-  handleSetProjectRoot,
-  SetProjectRootArgs,
-} from "./tools/set-project-root.js";
+import { createStandardToolRegistry } from "./plugins/index.js";
+import type { IToolRegistry } from "./plugins/plugin-interface.js";
 import { getConfig } from "./config/config-loader.js";
 import { ResolvedVitestMCPConfig } from "./types/config-types.js";
 
@@ -46,8 +28,9 @@ import { ResolvedVitestMCPConfig } from "./types/config-types.js";
  * Vitest MCP Server
  * Provides tools for running Vitest tests and analyzing coverage
  */
-class VitestMCPServer {
+export class VitestMCPServer {
   private server: Server;
+  private toolRegistry: IToolRegistry;
 
   constructor() {
     this.server = new Server(
@@ -73,113 +56,41 @@ class VitestMCPServer {
       }
     };
 
+    // Initialize the plugin registry with debug support
+    this.toolRegistry = createStandardToolRegistry({
+      debug: !!process.env.VITEST_MCP_DEBUG,
+      getErrorHint: this.getErrorHint.bind(this),
+    });
+
     this.setupHandlers();
   }
 
   private setupHandlers() {
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       const config = await getConfig();
-
-      const analyzeCoverageToolWithThresholds = {
-        ...analyzeCoverageTool,
-        description: this.buildCoverageToolDescription(config),
-      };
+      const tools = this.toolRegistry.getTools();
+      
+      // Update the analyze coverage tool description with threshold information
+      const updatedTools = tools.map(tool => {
+        if (tool.name === 'analyze_coverage') {
+          return {
+            ...tool,
+            description: this.buildCoverageToolDescription(config),
+          };
+        }
+        return tool;
+      });
 
       return {
-        tools: [
-          setProjectRootTool,
-          listTestsTool,
-          runTestsTool,
-          analyzeCoverageToolWithThresholds,
-        ],
+        tools: updatedTools,
       };
     });
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      try {
-        const { name, arguments: args } = request.params;
-
-        if (process.env.VITEST_MCP_DEBUG) {
-          console.error(
-            `[MCP] Tool called: ${name}`,
-            JSON.stringify(args, null, 2)
-          );
-        }
-
-        switch (name) {
-          case "set_project_root": {
-            const typedArgs = args as unknown as SetProjectRootArgs;
-            const result = await handleSetProjectRoot(typedArgs);
-            return {
-              content: [
-                { type: "text", text: JSON.stringify(result, null, 2) },
-              ],
-            };
-          }
-
-          case "list_tests": {
-            const typedArgs = args as unknown as ListTestsArgs;
-            const result = await handleListTests(typedArgs);
-            return {
-              content: [
-                { type: "text", text: JSON.stringify(result, null, 2) },
-              ],
-            };
-          }
-
-          case "run_tests": {
-            const typedArgs = args as unknown as RunTestsArgs;
-            const result = await handleRunTests(typedArgs);
-            return {
-              content: [
-                { type: "text", text: JSON.stringify(result, null, 2) },
-              ],
-            };
-          }
-
-          case "analyze_coverage": {
-            const typedArgs = args as unknown as AnalyzeCoverageArgs;
-            const result = await handleAnalyzeCoverage(typedArgs);
-            return {
-              content: [
-                { type: "text", text: JSON.stringify(result, null, 2) },
-              ],
-            };
-          }
-
-          default:
-            throw new Error(`Unknown tool: ${name}`);
-        }
-      } catch (error) {
-        const errorDetails = {
-          error: error instanceof Error ? error.message : "Unknown error",
-          stack: error instanceof Error ? error.stack : undefined,
-          tool: request.params.name,
-          arguments: request.params.arguments,
-        };
-
-        if (process.env.VITEST_MCP_DEBUG) {
-          console.error("[MCP] Tool execution error:", errorDetails);
-        }
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  success: false,
-                  error: errorDetails.error,
-                  tool: errorDetails.tool,
-                  hint: this.getErrorHint(errorDetails.error),
-                },
-                null,
-                2
-              ),
-            },
-          ],
-        };
-      }
+      const { name, arguments: args } = request.params;
+      
+      // Delegate to the type-safe plugin registry
+      return await this.toolRegistry.execute(name, args);
     });
 
     this.server.setRequestHandler(ListResourcesRequestSchema, async () => {
@@ -313,21 +224,35 @@ async function main() {
   }
 }
 
-process.on("SIGINT", () => {
+process.on("SIGINT", async () => {
   if (process.env.VITEST_MCP_DEBUG) {
-    console.error("[MCP] Received SIGINT, shutting down...");
+    console.error("[MCP] Received SIGINT, shutting down gracefully...");
   }
+  await gracefulShutdown();
   process.exit(0);
 });
 
-process.on("SIGTERM", () => {
+process.on("SIGTERM", async () => {
   if (process.env.VITEST_MCP_DEBUG) {
-    console.error("[MCP] Received SIGTERM, shutting down...");
+    console.error("[MCP] Received SIGTERM, shutting down gracefully...");
   }
+  await gracefulShutdown();
   process.exit(0);
 });
 
-main().catch((error) => {
-  console.error("[MCP] Unhandled error:", error);
-  process.exit(1);
-});
+/**
+ * Graceful shutdown handler
+ */
+async function gracefulShutdown(): Promise<void> {
+  if (process.env.VITEST_MCP_DEBUG) {
+    console.error("[MCP] Shutting down gracefully...");
+  }
+}
+
+// Only run main() if this file is being executed directly, not imported
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch((error) => {
+    console.error("[MCP] Unhandled error:", error);
+    process.exit(1);
+  });
+}

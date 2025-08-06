@@ -1,5 +1,6 @@
 import { fileExists, isDirectory } from "../utils/file-utils.js";
 import { join } from "path";
+import { hasVitestConfig } from "../utils/config-finder.js";
 
 /**
  * Manages the project root context for the MCP server session
@@ -29,12 +30,9 @@ class ProjectContextManager {
     }
 
     const hasPackageJson = await fileExists(join(absolutePath, "package.json"));
-    const hasVitestConfig =
-      (await fileExists(join(absolutePath, "vitest.config.ts"))) ||
-      (await fileExists(join(absolutePath, "vitest.config.js"))) ||
-      (await fileExists(join(absolutePath, "vitest.config.mjs")));
+    const hasConfig = await hasVitestConfig(absolutePath);
 
-    if (!hasPackageJson && !hasVitestConfig) {
+    if (!hasPackageJson && !hasConfig) {
       throw new Error(
         `Directory does not appear to be a valid project (no package.json or vitest.config found): ${absolutePath}`
       );

@@ -126,7 +126,7 @@ async function getVersionFromCli(cwd: string): Promise<string | null> {
       stdout += data.toString();
     });
 
-    child.stderr?.on('data', () => {
+    child.stderr?.on('data', (_data) => {
       // stderr captured but not used for version detection
     });
 
@@ -147,7 +147,7 @@ async function getVersionFromCli(cwd: string): Promise<string | null> {
       }
     });
 
-    child.on('error', () => {
+    child.on('error', (_error) => {
       clearTimeout(timeout);
       resolve(null);
     });

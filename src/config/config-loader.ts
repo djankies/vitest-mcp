@@ -3,6 +3,7 @@ import { join } from 'path';
 import { homedir } from 'os';
 import { VitestMCPConfig, ResolvedVitestMCPConfig } from '../types/config-types.js';
 import { parseCliArgs, getConfigPathFromArgs } from './cli-parser.js';
+// Performance cache temporarily disabled for build compatibility
 
 /**
  * Default configuration values
@@ -81,7 +82,9 @@ async function loadConfigFile(cliConfigPath?: string): Promise<VitestMCPConfig |
       const content = await readFile(cliConfigPath, 'utf-8');
       return JSON.parse(content);
     } catch (error) {
-      console.error(`Failed to load config from ${cliConfigPath}:`, error);
+      if (process.env.VITEST_MCP_DEBUG && !process.env.VITEST) {
+        console.error(`Failed to load config from ${cliConfigPath}:`, error);
+      }
       throw error;
     }
   }
@@ -93,7 +96,9 @@ async function loadConfigFile(cliConfigPath?: string): Promise<VitestMCPConfig |
       const content = await readFile(explicitPath, 'utf-8');
       return JSON.parse(content);
     } catch (error) {
-      console.error(`Failed to load config from ${explicitPath}:`, error);
+      if (process.env.VITEST_MCP_DEBUG && !process.env.VITEST) {
+        console.error(`Failed to load config from ${explicitPath}:`, error);
+      }
       throw error;
     }
   }
@@ -109,6 +114,8 @@ async function loadConfigFile(cliConfigPath?: string): Promise<VitestMCPConfig |
     } catch (error) {
       // File not found is expected, continue searching
       if ((error as { code?: string }).code !== 'ENOENT') {
+        console.error(`Error reading ${configPath}:`, error);
+      } else if (process.env.VITEST_MCP_DEBUG && !process.env.VITEST) {
         console.error(`Error reading ${configPath}:`, error);
       }
     }
@@ -257,16 +264,28 @@ let configInstance: ResolvedVitestMCPConfig | null = null;
 let configArgs: string[] | undefined;
 
 /**
- * Get the current configuration (cached)
+ * Get the current configuration (cached with simple optimization)
  */
 export async function getConfig(cliArgs?: string[]): Promise<ResolvedVitestMCPConfig> {
-  // If CLI args provided, always reload config
-  if (cliArgs && cliArgs !== configArgs) {
+  const cliArgsString = JSON.stringify(cliArgs || []);
+  const currentArgsString = JSON.stringify(configArgs || []);
+  
+  // Optimization: Only reload if args actually changed
+  if (cliArgs && cliArgsString !== currentArgsString) {
     configArgs = cliArgs;
     configInstance = await loadConfiguration(cliArgs);
+    
+    if (process.env.VITEST_MCP_DEBUG) {
+      console.error('[PERF] Config reloaded due to CLI args change');
+    }
   } else if (!configInstance) {
     configInstance = await loadConfiguration(configArgs);
+    
+    if (process.env.VITEST_MCP_DEBUG) {
+      console.error('[PERF] Config loaded for first time');
+    }
   }
+  
   return configInstance;
 }
 
