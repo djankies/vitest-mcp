@@ -15,15 +15,7 @@ const DEFAULT_CONFIG: ResolvedVitestMCPConfig = {
     watchMode: false,
   },
   coverageDefaults: {
-    threshold: 80,
     format: 'summary',
-    thresholds: {
-      lines: 80,
-      functions: 80,
-      branches: 80,
-      statements: 80,
-    },
-    thresholdsExplicitlySet: false, // Defaults are not explicitly set
     exclude: [
       '**/*.stories.*',
       '**/*.story.*',
@@ -209,41 +201,6 @@ function loadEnvironmentConfig(): Partial<VitestMCPConfig> {
     config.testDefaults.timeout = parseInt(process.env.VITEST_MCP_TEST_TIMEOUT, 10);
   }
   
-  // Coverage defaults
-  if (process.env.VITEST_MCP_COVERAGE_THRESHOLD) {
-    config.coverageDefaults = config.coverageDefaults || {};
-    config.coverageDefaults.threshold = parseInt(process.env.VITEST_MCP_COVERAGE_THRESHOLD, 10);
-    config.coverageDefaults.thresholdsExplicitlySet = true;
-  }
-  
-  // Specific coverage thresholds
-  if (process.env.VITEST_MCP_COVERAGE_THRESHOLD_LINES) {
-    config.coverageDefaults = config.coverageDefaults || {};
-    config.coverageDefaults.thresholds = config.coverageDefaults.thresholds || {};
-    config.coverageDefaults.thresholds.lines = parseInt(process.env.VITEST_MCP_COVERAGE_THRESHOLD_LINES, 10);
-    config.coverageDefaults.thresholdsExplicitlySet = true;
-  }
-  
-  if (process.env.VITEST_MCP_COVERAGE_THRESHOLD_BRANCHES) {
-    config.coverageDefaults = config.coverageDefaults || {};
-    config.coverageDefaults.thresholds = config.coverageDefaults.thresholds || {};
-    config.coverageDefaults.thresholds.branches = parseInt(process.env.VITEST_MCP_COVERAGE_THRESHOLD_BRANCHES, 10);
-    config.coverageDefaults.thresholdsExplicitlySet = true;
-  }
-  
-  if (process.env.VITEST_MCP_COVERAGE_THRESHOLD_FUNCTIONS) {
-    config.coverageDefaults = config.coverageDefaults || {};
-    config.coverageDefaults.thresholds = config.coverageDefaults.thresholds || {};
-    config.coverageDefaults.thresholds.functions = parseInt(process.env.VITEST_MCP_COVERAGE_THRESHOLD_FUNCTIONS, 10);
-    config.coverageDefaults.thresholdsExplicitlySet = true;
-  }
-  
-  if (process.env.VITEST_MCP_COVERAGE_THRESHOLD_STATEMENTS) {
-    config.coverageDefaults = config.coverageDefaults || {};
-    config.coverageDefaults.thresholds = config.coverageDefaults.thresholds || {};
-    config.coverageDefaults.thresholds.statements = parseInt(process.env.VITEST_MCP_COVERAGE_THRESHOLD_STATEMENTS, 10);
-    config.coverageDefaults.thresholdsExplicitlySet = true;
-  }
   
   // Server settings
   if (process.env.VITEST_MCP_VERBOSE) {

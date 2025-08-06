@@ -30,60 +30,10 @@ export async function parseCliArgs(args: string[]): Promise<Partial<VitestMCPCon
         break;
         
       // Coverage defaults
-      case '--threshold':
-        if (nextArg && !isNaN(parseInt(nextArg))) {
-          config.coverageDefaults = config.coverageDefaults || {};
-          config.coverageDefaults.threshold = parseInt(nextArg);
-          config.coverageDefaults.thresholdsExplicitlySet = true;
-          i++;
-        }
-        break;
-        
       case '--coverage-format':
         if (nextArg && ['summary', 'detailed'].includes(nextArg)) {
           config.coverageDefaults = config.coverageDefaults || {};
           config.coverageDefaults.format = nextArg as 'summary' | 'detailed';
-          i++;
-        }
-        break;
-        
-      // Specific coverage thresholds
-      case '--coverage-threshold-lines':
-        if (nextArg && !isNaN(parseInt(nextArg))) {
-          config.coverageDefaults = config.coverageDefaults || {};
-          config.coverageDefaults.thresholds = config.coverageDefaults.thresholds || {};
-          config.coverageDefaults.thresholds.lines = parseInt(nextArg);
-          config.coverageDefaults.thresholdsExplicitlySet = true;
-          i++;
-        }
-        break;
-        
-      case '--coverage-threshold-branches':
-        if (nextArg && !isNaN(parseInt(nextArg))) {
-          config.coverageDefaults = config.coverageDefaults || {};
-          config.coverageDefaults.thresholds = config.coverageDefaults.thresholds || {};
-          config.coverageDefaults.thresholds.branches = parseInt(nextArg);
-          config.coverageDefaults.thresholdsExplicitlySet = true;
-          i++;
-        }
-        break;
-        
-      case '--coverage-threshold-functions':
-        if (nextArg && !isNaN(parseInt(nextArg))) {
-          config.coverageDefaults = config.coverageDefaults || {};
-          config.coverageDefaults.thresholds = config.coverageDefaults.thresholds || {};
-          config.coverageDefaults.thresholds.functions = parseInt(nextArg);
-          config.coverageDefaults.thresholdsExplicitlySet = true;
-          i++;
-        }
-        break;
-        
-      case '--coverage-threshold-statements':
-        if (nextArg && !isNaN(parseInt(nextArg))) {
-          config.coverageDefaults = config.coverageDefaults || {};
-          config.coverageDefaults.thresholds = config.coverageDefaults.thresholds || {};
-          config.coverageDefaults.thresholds.statements = parseInt(nextArg);
-          config.coverageDefaults.thresholdsExplicitlySet = true;
           i++;
         }
         break;
@@ -184,11 +134,6 @@ Options:
     --timeout <ms>            Test execution timeout in milliseconds
 
   Coverage Defaults:
-    --threshold <percent>              Default coverage threshold for all metrics (0-100)
-    --coverage-threshold-lines <n>     Specific threshold for line coverage (0-100)
-    --coverage-threshold-branches <n>  Specific threshold for branch coverage (0-100)
-    --coverage-threshold-functions <n> Specific threshold for function coverage (0-100)
-    --coverage-threshold-statements <n> Specific threshold for statement coverage (0-100)
     --coverage-format <fmt>            Default coverage format (summary|detailed)
 
   Server Settings:
@@ -214,10 +159,7 @@ Examples:
   # Override timeout and format
   vitest-mcp --timeout 60000 --format detailed
 
-  # Set coverage thresholds
-  vitest-mcp --threshold 90 --coverage-format detailed
-  
-  # Set specific metric thresholds
-  vitest-mcp --coverage-threshold-lines 90 --coverage-threshold-branches 80
+  # Set coverage format
+  vitest-mcp --coverage-format detailed
 `);
 }

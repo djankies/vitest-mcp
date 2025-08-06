@@ -53,10 +53,7 @@ describe('VitestMCPServer', () => {
       const { getConfig } = await import('../config/config-loader.js');
       vi.mocked(getConfig).mockResolvedValue({
         server: { verbose: false },
-        coverageDefaults: {
-          thresholdsExplicitlySet: false,
-          thresholds: {}
-        }
+        coverageDefaults: {}
       });
       
       const { VitestMCPServer } = await import('../index.js');
@@ -94,10 +91,7 @@ describe('VitestMCPServer', () => {
       const { getConfig } = await import('../config/config-loader.js');
       vi.mocked(getConfig).mockResolvedValue({
         server: { verbose: false },
-        coverageDefaults: {
-          thresholdsExplicitlySet: false,
-          thresholds: {}
-        }
+        coverageDefaults: {}
       });
       
       const { VitestMCPServer } = await import('../index.js');
@@ -121,10 +115,7 @@ describe('VitestMCPServer', () => {
       const { getConfig } = await import('../config/config-loader.js');
       vi.mocked(getConfig).mockResolvedValue({
         server: { verbose: false },
-        coverageDefaults: {
-          thresholdsExplicitlySet: false,
-          thresholds: {}
-        }
+        coverageDefaults: {}
       });
       
       const { VitestMCPServer } = await import('../index.js');
@@ -149,10 +140,7 @@ describe('VitestMCPServer', () => {
       const { getConfig } = await import('../config/config-loader.js');
       vi.mocked(getConfig).mockResolvedValue({
         server: { verbose: false },
-        coverageDefaults: {
-          thresholdsExplicitlySet: false,
-          thresholds: {}
-        }
+        coverageDefaults: {}
       });
       
       const { VitestMCPServer } = await import('../index.js');
@@ -180,10 +168,7 @@ describe('VitestMCPServer', () => {
       const { getConfig } = await import('../config/config-loader.js');
       vi.mocked(getConfig).mockResolvedValue({
         server: { verbose: false },
-        coverageDefaults: {
-          thresholdsExplicitlySet: false,
-          thresholds: {}
-        }
+        coverageDefaults: {}
       });
       
       const { VitestMCPServer } = await import('../index.js');
@@ -208,10 +193,7 @@ describe('VitestMCPServer', () => {
       const { getConfig } = await import('../config/config-loader.js');
       vi.mocked(getConfig).mockResolvedValue({
         server: { verbose: false },
-        coverageDefaults: {
-          thresholdsExplicitlySet: false,
-          thresholds: {}
-        }
+        coverageDefaults: {}
       });
       
       const { VitestMCPServer } = await import('../index.js');

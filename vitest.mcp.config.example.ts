@@ -11,17 +11,20 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    // Use JSON reporter for better AI parsing
+    // JSON reporter required for AI parsing
     reporters: ['json'],
     
-    // Enable coverage by default for MCP runs
+    // Required for coverage analysis
     coverage: {
       enabled: true,
       provider: 'v8',
       reporter: ['json', 'html'],
       reportsDirectory: './coverage-mcp',
       
-      // MCP-specific coverage thresholds
+      /*
+      * Providing thresholds in the config will cause the `analyze_coverage` tool 
+      * to report on them. See README for more config priority details.
+      */
       thresholds: {
         lines: 80,
         functions: 80,
@@ -32,11 +35,8 @@ export default defineConfig({
     
     // Disable console output interception for cleaner logs
     disableConsoleIntercept: true,
-    
-    // Set timeout for MCP runs
+
     testTimeout: 30000,
-    
-    // Exclude additional patterns for MCP runs
     exclude: [
       '**/node_modules/**',
       '**/dist/**',

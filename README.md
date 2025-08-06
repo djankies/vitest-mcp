@@ -27,7 +27,7 @@ The server has been completely refactored around a **type-safe plugin architectu
 
 - **Smart Test Execution** with structured output
 - **Console Log Capture** for debugging (`showLogs` parameter)
-- **Coverage Analysis** with gap insights and threshold validation
+- **Coverage Analysis** with gap insights
 - **Multi-Repository Support** in single session with context switching
 - **Safety Guards** prevent full project runs and resource exhaustion
 - **Development Mode** with enhanced debugging tools
@@ -120,11 +120,11 @@ Analyze test coverage with gap insights.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `target` | string | Yes | File or directory to analyze coverage for |
-| `threshold` | number | No | Minimum coverage percentage (default: 80) |
 | `format` | string | No | Output format: "summary" or "detailed" |
 | `includeDetails` | boolean | No | Include line-by-line coverage analysis |
 | `exclude` | string[] | No | Patterns to exclude from coverage (e.g., ["**/*.stories.*"]) |
-| `thresholds` | object | No | Custom thresholds for lines, functions, branches, statements |
+
+> **Note**: Coverage thresholds should be configured in your `vitest.config.ts` file, not via MCP parameters.
 
 Automatically excludes test utilities, mocks, stories, and e2e files.
 
@@ -205,37 +205,29 @@ export default defineConfig({
 
 ### Coverage Thresholds
 
-Set coverage thresholds via command-line flags when starting the server:
+Coverage thresholds should be configured in your Vitest configuration file, not through MCP server options:
 
-```bash
-# Set overall threshold for all metrics
-npx @djankies/vitest-mcp --threshold 80
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
 
-# Set specific metric thresholds
-npx @djankies/vitest-mcp \
-  --coverage-threshold-lines 90 \
-  --coverage-threshold-branches 80 \
-  --coverage-threshold-functions 85 \
-  --coverage-threshold-statements 90
-```
-
-Or in Claude Desktop config:
-
-```json
-{
-  "mcpServers": {
-    "vitest": {
-      "command": "npx",
-      "args": [
-        "-y", 
-        "@djankies/vitest-mcp",
-        "--coverage-threshold-lines", "90",
-        "--coverage-threshold-branches", "80"
-      ]
+export default defineConfig({
+  test: {
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      thresholds: {
+        lines: 90,
+        functions: 85,
+        branches: 80,
+        statements: 90
+      }
     }
   }
-}
+});
 ```
+
+This ensures thresholds are consistent between MCP operations and your regular development workflow.
 
 ### Configuration File
 
@@ -249,18 +241,11 @@ Optional `.vitest-mcp.json` in home or project directory:
   "testDefaults": {
     "format": "detailed",
     "timeout": 60000
-  },
-  "coverageDefaults": {
-    "threshold": 80,
-    "thresholds": {
-      "lines": 90,
-      "branches": 80,
-      "functions": 85,
-      "statements": 90
-    }
   }
 }
 ```
+
+> **Note**: Coverage thresholds should be configured in `vitest.config.ts`, not in the MCP configuration file.
 
 ### Priority Order
 

@@ -2,6 +2,8 @@ import {
   RawCoverageData,
   CoverageAnalysisResult,
 } from "../types/coverage-types.js";
+import { getVitestCoverageThresholds, checkThresholdsMet, getThresholdViolations } from './vitest-config-reader.js';
+import { projectContext } from '../context/project-context.js';
 
 // Coverage file data interface
 interface CoverageFileData {
@@ -38,14 +40,7 @@ interface FileBreakdownItem {
 
 export interface CoverageProcessingOptions {
   target: string;
-  threshold: number;
   includeDetails: boolean;
-  thresholds?: {
-    lines?: number;
-    functions?: number;
-    branches?: number;
-    statements?: number;
-  };
 }
 
 /**
@@ -69,22 +64,33 @@ export async function processCoverageData(
 
     const totals = extractTotals(rawData.summary);
 
-    const threshold = options.threshold;
-    const meetsThreshold =
-      coverage.lines >= threshold &&
-      coverage.functions >= threshold &&
-      coverage.branches >= threshold &&
-      coverage.statements >= threshold;
+    // Get thresholds from Vitest config and check if coverage meets them
+    const projectRoot = projectContext.getProjectRoot();
+    const thresholds = await getVitestCoverageThresholds(projectRoot);
+    
+    if (process.env.VITEST_MCP_DEBUG) {
+      console.error('Coverage processor - thresholds:', thresholds, 'coverage:', coverage);
+    }
 
     const result: CoverageAnalysisResult = {
       success: true,
       coverage,
       file: targetFile,
       totals,
-      meetsThreshold,
       command: "",
       duration: 0,
     };
+
+    // Only include threshold information if thresholds are configured
+    if (thresholds) {
+      const meetsThreshold = checkThresholdsMet(coverage, thresholds);
+      const thresholdViolations = getThresholdViolations(coverage, thresholds);
+      
+      result.meetsThreshold = meetsThreshold;
+      if (thresholdViolations.length > 0) {
+        result.thresholdViolations = thresholdViolations;
+      }
+    }
 
     if (format === "detailed") {
       const uncovered = await extractUncoveredItems(
@@ -124,32 +130,6 @@ export async function processCoverageData(
       }
 
       result.fileBreakdown = fileBreakdown;
-
-      const violations: string[] = [];
-      if (coverage.lines < threshold) {
-        violations.push(
-          `Line coverage (${coverage.lines}%) is below threshold (${threshold}%)`
-        );
-      }
-      if (coverage.functions < threshold) {
-        violations.push(
-          `Function coverage (${coverage.functions}%) is below threshold (${threshold}%)`
-        );
-      }
-      if (coverage.branches < threshold) {
-        violations.push(
-          `Branch coverage (${coverage.branches}%) is below threshold (${threshold}%)`
-        );
-      }
-      if (coverage.statements < threshold) {
-        violations.push(
-          `Statement coverage (${coverage.statements}%) is below threshold (${threshold}%)`
-        );
-      }
-
-      if (violations.length > 0) {
-        result.thresholdViolations = violations;
-      }
     }
 
     return result;

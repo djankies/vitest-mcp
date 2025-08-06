@@ -31,33 +31,10 @@ export interface VitestMCPConfig {
    */
   coverageDefaults?: {
     /**
-     * Default coverage threshold percentage
-     * @default 80
-     */
-    threshold?: number;
-    
-    /**
      * Default output format for analyze_coverage
      * @default 'summary'
      */
     format?: 'summary' | 'detailed';
-    
-    
-    /**
-     * Custom thresholds for different metrics
-     */
-    thresholds?: {
-      lines?: number;
-      functions?: number;
-      branches?: number;
-      statements?: number;
-    };
-    
-    /**
-     * Whether thresholds were explicitly set (not using defaults)
-     * @internal
-     */
-    thresholdsExplicitlySet?: boolean;
     
     /**
      * Patterns to exclude from coverage analysis
@@ -155,9 +132,7 @@ export interface VitestMCPConfig {
  */
 export type ResolvedVitestMCPConfig = Required<{
   testDefaults: Required<NonNullable<VitestMCPConfig['testDefaults']>>;
-  coverageDefaults: Required<NonNullable<VitestMCPConfig['coverageDefaults']>> & {
-    thresholdsExplicitlySet: boolean;
-  };
+  coverageDefaults: Required<NonNullable<VitestMCPConfig['coverageDefaults']>>;
   discovery: Required<NonNullable<VitestMCPConfig['discovery']>>;
   server: Required<NonNullable<VitestMCPConfig['server']>>;
   safety: Required<NonNullable<VitestMCPConfig['safety']>>;

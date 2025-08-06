@@ -56,7 +56,6 @@ export class VitestMCPServer {
       }
     };
 
-    // Initialize the plugin registry with debug support
     this.toolRegistry = createStandardToolRegistry({
       debug: !!process.env.VITEST_MCP_DEBUG,
       getErrorHint: this.getErrorHint.bind(this),
@@ -70,7 +69,6 @@ export class VitestMCPServer {
       const config = await getConfig();
       const tools = this.toolRegistry.getTools();
       
-      // Update the analyze coverage tool description with threshold information
       const updatedTools = tools.map(tool => {
         if (tool.name === 'analyze_coverage') {
           return {
@@ -89,7 +87,6 @@ export class VitestMCPServer {
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
       
-      // Delegate to the type-safe plugin registry
       return await this.toolRegistry.execute(name, args);
     });
 
@@ -159,35 +156,9 @@ export class VitestMCPServer {
   }
 
   private buildCoverageToolDescription(
-    config: ResolvedVitestMCPConfig
+    _config: ResolvedVitestMCPConfig
   ): string {
-    let thresholdInfo = "";
-
-    if (config.coverageDefaults.thresholdsExplicitlySet) {
-      const thresholds = config.coverageDefaults.thresholds;
-      const parts: string[] = [];
-
-      if (thresholds.lines !== undefined && thresholds.lines > 0) {
-        parts.push(`lines: ${thresholds.lines}%`);
-      }
-      if (thresholds.branches !== undefined && thresholds.branches > 0) {
-        parts.push(`branches: ${thresholds.branches}%`);
-      }
-      if (thresholds.functions !== undefined && thresholds.functions > 0) {
-        parts.push(`functions: ${thresholds.functions}%`);
-      }
-      if (thresholds.statements !== undefined && thresholds.statements > 0) {
-        parts.push(`statements: ${thresholds.statements}%`);
-      }
-
-      if (parts.length > 0) {
-        thresholdInfo = `\n\nCOVERAGE THRESHOLDS: ${parts.join(
-          ", "
-        )}. Results will indicate if these thresholds are met.`;
-      }
-    }
-
-    return `Perform comprehensive test coverage analysis with line-by-line gap identification, actionable insights, and detailed metrics for lines, functions, branches, and statements. Automatically excludes common non-production files (stories, mocks, e2e tests) and provides recommendations for improving coverage. Detects and prevents analysis on test files themselves. Requires set_project_root to be called first.${thresholdInfo}\n\nUSE WHEN: User wants to check test coverage, identify untested code, improve test coverage, asks "what's not tested", "coverage report", "how well tested", or mentions coverage/testing quality. Essential when "vitest-mcp:" prefix is used with coverage-related requests. Prefer this over raw vitest coverage commands for actionable insights.`;
+    return `Perform comprehensive test coverage analysis with line-by-line gap identification, actionable insights, and detailed metrics for lines, functions, branches, and statements. Automatically excludes common non-production files (stories, mocks, e2e tests) and provides recommendations for improving coverage. Detects and prevents analysis on test files themselves. Requires set_project_root to be called first. Coverage thresholds are configured via vitest.config.ts.\n\nUSE WHEN: User wants to check test coverage, identify untested code, improve test coverage, asks "what's not tested", "coverage report", "how well tested", or mentions coverage/testing quality. Essential when "vitest-mcp:" prefix is used with coverage-related requests. Prefer this over raw vitest coverage commands for actionable insights.`;
   }
 
   async run() {

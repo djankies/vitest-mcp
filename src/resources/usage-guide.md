@@ -18,7 +18,14 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      exclude: ['node_modules/', 'dist/', 'coverage/', '**/*.test.ts', '**/*.spec.ts']
+      exclude: ['node_modules/', 'dist/', 'coverage/', '**/*.test.ts', '**/*.spec.ts'],
+      // Configure coverage thresholds here, not via MCP server
+      thresholds: {
+        lines: 80,
+        functions: 80,
+        branches: 75,
+        statements: 80,
+      }
     }
   },
 });
@@ -55,22 +62,23 @@ run_tests({
 ```javascript
 analyze_coverage({
   target: "./src/components",  // required
-  threshold: 80,  // optional
   includeDetails: true,  // optional
   format: "detailed"  // optional
 })
 ```
+
+> **Note**: Coverage thresholds should be configured in your `vitest.config.ts` file, not via the `threshold` parameter.
 
 ## Best Practices
 
 - Use specific paths rather than entire projects
 - Start with `list_tests` to understand test structure
 - Use `format: "summary"` for pass/fail counts, `format: "detailed"` for failure analysis
-- Set realistic coverage thresholds (start with 70%)
+- Configure coverage thresholds in `vitest.config.ts` for consistency across all environments
 
 ## Troubleshooting
 
 - "Coverage provider not found" → Install @vitest/coverage-v8
 - "No test files found" → Check path and pattern parameters
-- "Threshold violations" → Lower thresholds or add more tests
+- "Threshold violations" → Configure thresholds in `vitest.config.ts` or add more tests
 - Timeout errors → Increase timeout parameter

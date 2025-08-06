@@ -85,15 +85,7 @@ describe('Integration Tests', () => {
         watchMode: false
       },
       coverageDefaults: {
-        threshold: 80,
         format: 'summary',
-        thresholds: {
-          lines: 80,
-          functions: 80,
-          branches: 80,
-          statements: 80
-        },
-        thresholdsExplicitlySet: false,
         exclude: []
       },
       discovery: {
@@ -700,10 +692,7 @@ describe('Integration Tests', () => {
       const customConfig = {
         testDefaults: { format: 'detailed' as const, timeout: 60000, watchMode: false },
         coverageDefaults: { 
-          threshold: 90, 
           format: 'detailed',
-          thresholds: { lines: 90, functions: 90, branches: 90, statements: 90 },
-          thresholdsExplicitlySet: true,
           exclude: []
         },
         discovery: { testPatterns: ['**/*.test.*'], excludePatterns: ['node_modules'], maxDepth: 5 },
@@ -734,7 +723,7 @@ describe('Integration Tests', () => {
       const mockProjectPath = '/test/project';
       const initialConfig = {
         testDefaults: { format: 'summary' as const, timeout: 30000, watchMode: false },
-        coverageDefaults: { threshold: 80, format: 'summary', thresholds: { lines: 80, functions: 80, branches: 80, statements: 80 }, thresholdsExplicitlySet: false, exclude: [] },
+        coverageDefaults: { format: 'summary', exclude: [] },
         discovery: { testPatterns: ['**/*.{test,spec}.*'], excludePatterns: ['node_modules'], maxDepth: 10 },
         server: { verbose: false, validatePaths: true, allowRootExecution: false, workingDirectory: process.cwd() }
       };

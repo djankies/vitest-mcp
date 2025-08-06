@@ -190,31 +190,23 @@ class CoverageAnalyzer {
     args: AnalyzeCoverageArgs,
     coverageResult: CoverageExecutionResult
   ): Promise<ProcessedCoverageResult> {
-    if (!coverageResult.success && !coverageResult.coverageData) {
-      throw new Error(
-        `Coverage analysis failed: ${coverageResult.stderr || "Unknown error"}`
-      );
-    }
-
+    // Only throw if we have neither success nor coverage data
+    // When thresholds fail, success is false but we still have coverage data
     if (!coverageResult.coverageData) {
       throw new Error(
-        "No coverage data available - coverage analysis may have failed to generate data"
+        `Coverage analysis failed: ${coverageResult.stderr || "No coverage data available"}`
       );
     }
 
     const config = this.config!;
     const format = args.format ?? config.coverageDefaults.format;
-    const threshold = config.coverageDefaults.threshold;
-    const thresholds = config.coverageDefaults.thresholds;
-
+    
     const result = await processCoverageData(
       coverageResult.coverageData,
       format as "summary" | "detailed",
       {
         target: args.target,
-        threshold,
         includeDetails: format === "detailed",
-        thresholds: thresholds,
       }
     );
 
@@ -411,9 +403,6 @@ class CoverageAnalyzer {
     command.push("--passWithNoTests");
     command.push("--reporter=json");
 
-    // Add thresholds
-    this.addThresholds(command, config);
-
     return command;
   }
 
@@ -495,36 +484,6 @@ class CoverageAnalyzer {
     return null;
   }
 
-  /**
-   * Add coverage thresholds to command
-   */
-  private addThresholds(command: string[], config: ResolvedVitestMCPConfig): void {
-    const thresholds = config.coverageDefaults.thresholds;
-    
-    if (thresholds) {
-      if (thresholds.lines !== undefined && thresholds.lines > 0) {
-        command.push(`--coverage.thresholds.lines=${thresholds.lines}`);
-      }
-      if (thresholds.functions !== undefined && thresholds.functions > 0) {
-        command.push(`--coverage.thresholds.functions=${thresholds.functions}`);
-      }
-      if (thresholds.branches !== undefined && thresholds.branches > 0) {
-        command.push(`--coverage.thresholds.branches=${thresholds.branches}`);
-      }
-      if (thresholds.statements !== undefined && thresholds.statements > 0) {
-        command.push(`--coverage.thresholds.statements=${thresholds.statements}`);
-      }
-    } else if (
-      config.coverageDefaults.threshold &&
-      config.coverageDefaults.threshold > 0
-    ) {
-      const threshold = config.coverageDefaults.threshold;
-      command.push(`--coverage.thresholds.lines=${threshold}`);
-      command.push(`--coverage.thresholds.functions=${threshold}`);
-      command.push(`--coverage.thresholds.branches=${threshold}`);
-      command.push(`--coverage.thresholds.statements=${threshold}`);
-    }
-  }
 }
 
 /**
@@ -793,6 +752,12 @@ async function executeCommand(
 
     child.on("close", (code) => {
       clearTimeout(timeout);
+      if (process.env.VITEST_MCP_DEBUG) {
+        console.error('Command exit code:', code, 'stderr length:', stderr.length);
+        if (stderr) {
+          console.error('stderr content:', stderr.substring(0, 200));
+        }
+      }
       resolve({
         command: command.join(" "),
         success: code === 0,
@@ -834,7 +799,6 @@ function createErrorAnalysis(_error: unknown): CoverageAnalysisResult {
       functions: 0,
       branches: 0,
     },
-    meetsThreshold: false,
     command: "",
     duration: 0,
   };

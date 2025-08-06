@@ -5,6 +5,26 @@ All notable changes to the Vitest MCP Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **BREAKING**: Removed MCP server's ability to set or override coverage thresholds
+- Coverage thresholds are now read exclusively from `vitest.config.ts` files
+- Removed all threshold-related CLI arguments (`--threshold`, `--coverage-threshold-*`)
+- Removed threshold-related environment variables (`VITEST_MCP_COVERAGE_THRESHOLD*`)
+- `analyze_coverage` tool responses only include threshold information when thresholds are configured in Vitest config
+- Projects without configured thresholds will not receive threshold-related fields in responses
+
+### Added
+- New `vitest-config-reader` utility to extract thresholds from Vitest configuration files
+- Graceful error handling for future Vitest configuration schema changes
+- Comprehensive validation and type checking for threshold values
+
+### Fixed
+- Threshold detection now uses parsed coverage percentages compared against configured thresholds
+- Proper handling of projects that don't specify coverage thresholds
+- Updated all documentation to reflect that thresholds should be configured in `vitest.config.ts`
+
 ## [0.4.1] - 2024-12-06
 
 ### Fixed

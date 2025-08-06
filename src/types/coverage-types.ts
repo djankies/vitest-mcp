@@ -81,7 +81,7 @@ export interface CoverageAnalysisResult {
     functions: number;
     branches: number;
   };
-  meetsThreshold: boolean;
+  meetsThreshold?: boolean;  // Optional - only present if thresholds are configured
   command: string;
   duration: number;
   error?: string;
@@ -107,7 +107,7 @@ export interface CoverageAnalysisResult {
       statements: number;
     };
   }>;
-  thresholdViolations?: string[];
+  thresholdViolations?: string[];  // Optional - only present if thresholds are violated
 }
 
 export interface AnalyzeCoverageArgs {

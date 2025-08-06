@@ -2,6 +2,20 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { processCoverageData } from '../coverage-processor.js';
 import type { RawCoverageData } from '../../types/coverage-types.js';
 
+// Mock the project context
+vi.mock('../../context/project-context.js', () => ({
+  projectContext: {
+    getProjectRoot: vi.fn(() => '/test/project')
+  }
+}));
+
+// Mock the vitest config reader
+vi.mock('../vitest-config-reader.js', () => ({
+  getVitestCoverageThresholds: vi.fn(() => Promise.resolve(null)),
+  checkThresholdsMet: vi.fn(() => true),
+  getThresholdViolations: vi.fn(() => [])
+}));
+
 describe('coverage-processor', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -32,7 +46,7 @@ describe('coverage-processor', () => {
       }
     };
 
-    const options = { target: './src', threshold: 80, includeDetails: false };
+    const options = { target: './src', includeDetails: false };
 
     it('should process coverage data and calculate percentages correctly', async () => {
       const result = await processCoverageData(mockRawData, 'summary', options);
@@ -44,12 +58,9 @@ describe('coverage-processor', () => {
       expect(result.coverage.statements).toBe(80);
     });
 
-    it('should determine threshold compliance correctly', async () => {
+    it('should not include threshold info when thresholds are not configured', async () => {
       const result = await processCoverageData(mockRawData, 'summary', options);
-      expect(result.meetsThreshold).toBe(false); // functions at 75% < 80%
-
-      const passingResult = await processCoverageData(mockRawData, 'summary', { ...options, threshold: 70 });
-      expect(passingResult.meetsThreshold).toBe(true);
+      expect(result.meetsThreshold).toBeUndefined();
     });
 
     it('should extract totals correctly', async () => {
@@ -75,12 +86,10 @@ describe('coverage-processor', () => {
       expect(result.uncovered?.['test.ts'].branches).toContain(15);
     });
 
-    it('should generate threshold violations in detailed format', async () => {
+    it('should not include threshold violations when thresholds are not configured', async () => {
       const result = await processCoverageData(mockRawData, 'detailed', options);
       
-      expect(result.thresholdViolations).toContain(
-        'Function coverage (75%) is below threshold (80%)'
-      );
+      expect(result.thresholdViolations).toBeUndefined();
     });
 
     it('should include file breakdown in detailed format', async () => {
