@@ -68,60 +68,62 @@ export interface CoverageExecutionResult {
 }
 
 /**
- * Main handler for coverage analysis
+ * CoverageAnalyzer class - Handles coverage analysis with single responsibility methods
  */
-export async function handleAnalyzeCoverage(
-  args: AnalyzeCoverageArgs
-): Promise<ProcessedCoverageResult> {
-  const startTime = Date.now();
-  let builtCommand = "";
+class CoverageAnalyzer {
+  private projectRoot: string;
+  private startTime: number;
+  private config: ResolvedVitestMCPConfig | null = null;
 
-  try {
+  constructor() {
+    this.startTime = performance.now();
+    this.projectRoot = "";
+  }
+
+  /**
+   * Validate input arguments and project context
+   */
+  private async validateInput(args: AnalyzeCoverageArgs): Promise<{ targetPath: string; config: ResolvedVitestMCPConfig }> {
     if (!args.target || args.target.trim() === "") {
       throw new Error(
         "Target parameter is required. Specify a file or directory to analyze coverage."
       );
     }
 
-    const config = await getConfig();
-
-    const threshold = config.coverageDefaults.threshold;
-    const format = args.format ?? config.coverageDefaults.format;
-    const thresholds = config.coverageDefaults.thresholds;
-    const exclude = args.exclude ?? config.coverageDefaults.exclude ?? [];
-
-    let projectRoot: string;
-    try {
-      projectRoot = projectContext.getProjectRoot();
-    } catch {
-      return "Please call set_project_root first" as unknown as ProcessedCoverageResult;
-    }
-    const targetPath = resolve(projectRoot, args.target);
-
-    const isTestFile =
-      /\.(test|spec)\.(js|ts|jsx|tsx|mjs|cjs)$/i.test(args.target) ||
-      args.target.includes("/__tests__/") ||
-      args.target.includes("/tests/") ||
-      args.target.includes("\\__tests__\\") ||
-      args.target.includes("\\tests\\");
-
-    if (isTestFile) {
-      return "Run coverage analysis on the source file, not the test file" as unknown as ProcessedCoverageResult;
-    }
+    this.config = await getConfig();
 
     try {
-      const commandArray = await buildCoverageCommand(
-        { ...args, format, exclude },
-        config,
-        projectRoot,
-        targetPath
-      );
-      builtCommand = commandArray.join(" ");
+      this.projectRoot = projectContext.getProjectRoot();
     } catch {
-      builtCommand = `npx vitest run --coverage ${args.target || ""}`;
+      throw new Error("Please call set_project_root first");
     }
 
-    const versionCheck = await checkAllVersions(projectRoot);
+    const targetPath = resolve(this.projectRoot, args.target);
+
+    // Check if target is a test file
+    if (this.isTestFile(args.target)) {
+      throw new Error("Run coverage analysis on the source file, not the test file");
+    }
+
+    return { targetPath, config: this.config };
+  }
+
+  /**
+   * Check if the target is a test file
+   */
+  private isTestFile(target: string): boolean {
+    return /\.(test|spec)\.(js|ts|jsx|tsx|mjs|cjs)$/i.test(target) ||
+      target.includes("/__tests__/") ||
+      target.includes("/tests/") ||
+      target.includes("\\__tests__\\") ||
+      target.includes("\\tests\\");
+  }
+
+  /**
+   * Validate versions and target path
+   */
+  private async validateEnvironment(targetPath: string): Promise<void> {
+    const versionCheck = await checkAllVersions(this.projectRoot);
     if (versionCheck.errors.length > 0) {
       const report = generateVersionReport(versionCheck);
       throw new Error(`Version compatibility issues found:\n\n${report}`);
@@ -137,19 +139,20 @@ export async function handleAnalyzeCoverage(
 
     if (!(await fileExists(targetPath))) {
       throw new Error(
-        `Target does not exist: ${args.target} (resolved to: ${targetPath})`
+        `Target does not exist: ${targetPath}`
       );
     }
 
     if (
       (await isDirectoryPath(targetPath)) &&
-      resolve(targetPath) === resolve(projectRoot)
+      resolve(targetPath) === resolve(this.projectRoot)
     ) {
       throw new Error(
         "Cannot analyze coverage for entire project root. Please specify a specific file or subdirectory."
       );
     }
 
+    // Additional test file check for single files
     if (!(await isDirectoryPath(targetPath))) {
       const isTestFile =
         targetPath.includes(".test.") ||
@@ -158,18 +161,35 @@ export async function handleAnalyzeCoverage(
 
       if (isTestFile) {
         throw new Error(
-          `Cannot analyze coverage for test file: ${args.target}. Coverage analysis should target source code files, not test files. Try analyzing the source files that this test file covers instead.`
+          `Cannot analyze coverage for test file. Coverage analysis should target source code files, not test files. Try analyzing the source files that this test file covers instead.`
         );
       }
     }
+  }
 
-    const coverageResult = await executeCoverageAnalysis(
-      { ...args, format, exclude },
-      config,
-      projectRoot,
-      targetPath
-    );
+  /**
+   * Execute coverage analysis and get raw results
+   */
+  private async executeCoverage(args: AnalyzeCoverageArgs): Promise<CoverageExecutionResult> {
+    const { targetPath, config } = await this.validateInput(args);
+    await this.validateEnvironment(targetPath);
 
+    const finalArgs = {
+      ...args,
+      format: args.format ?? config.coverageDefaults.format,
+      exclude: args.exclude ?? config.coverageDefaults.exclude ?? [],
+    };
+
+    return await this.executeCoverageAnalysis(finalArgs, config, targetPath);
+  }
+
+  /**
+   * Process coverage results
+   */
+  private async processCoverageResults(
+    args: AnalyzeCoverageArgs,
+    coverageResult: CoverageExecutionResult
+  ): Promise<ProcessedCoverageResult> {
     if (!coverageResult.success && !coverageResult.coverageData) {
       throw new Error(
         `Coverage analysis failed: ${coverageResult.stderr || "Unknown error"}`
@@ -181,6 +201,11 @@ export async function handleAnalyzeCoverage(
         "No coverage data available - coverage analysis may have failed to generate data"
       );
     }
+
+    const config = this.config!;
+    const format = args.format ?? config.coverageDefaults.format;
+    const threshold = config.coverageDefaults.threshold;
+    const thresholds = config.coverageDefaults.thresholds;
 
     const result = await processCoverageData(
       coverageResult.coverageData,
@@ -194,133 +219,322 @@ export async function handleAnalyzeCoverage(
     );
 
     result.command = coverageResult.command;
-    result.duration = Date.now() - startTime;
+    result.duration = Math.round((performance.now() - this.startTime) * 100) / 100;
 
     return result;
-  } catch (error) {
+  }
+
+  /**
+   * Create error result
+   */
+  private createErrorResult(error: unknown, builtCommand: string): ProcessedCoverageResult {
     const errorResult = createErrorAnalysis(error);
     errorResult.command = builtCommand;
-    errorResult.duration = Date.now() - startTime;
-    errorResult.error =
-      error instanceof Error ? error.message : "Unknown error";
+    errorResult.duration = Date.now() - this.startTime;
+    errorResult.error = error instanceof Error ? error.message : "Unknown error";
     return errorResult;
+  }
+
+  /**
+   * Build command for display purposes
+   */
+  private buildDisplayCommand(args: AnalyzeCoverageArgs): string {
+    try {
+      return `npx vitest run --coverage ${args.target || ""}`;
+    } catch {
+      return `npx vitest run --coverage ${args.target || ""}`;
+    }
+  }
+
+  /**
+   * Main execution method
+   */
+  async execute(args: AnalyzeCoverageArgs): Promise<ProcessedCoverageResult> {
+    let builtCommand = "";
+
+    try {
+      builtCommand = this.buildDisplayCommand(args);
+      
+      const coverageResult = await this.executeCoverage(args);
+      return await this.processCoverageResults(args, coverageResult);
+    } catch (error) {
+      return this.createErrorResult(error, builtCommand);
+    }
+  }
+
+  /**
+   * Execute Vitest coverage analysis with proper command building
+   */
+  private async executeCoverageAnalysis(
+    args: AnalyzeCoverageArgs,
+    config: ResolvedVitestMCPConfig,
+    targetPath: string
+  ): Promise<CoverageExecutionResult> {
+    const command = await this.buildCoverageCommand(args, config, targetPath);
+    const result = await executeCommand(command, this.projectRoot);
+
+    let coverageData: RawCoverageData | undefined;
+
+    if (result.success || result.stdout) {
+      try {
+        coverageData = await this.parseCoverageData(result.stdout, args.target);
+      } catch (parseError) {
+        this.handleParseError(parseError, result);
+      }
+    }
+
+    return {
+      ...result,
+      coverageData,
+    };
+  }
+
+  /**
+   * Parse coverage data from stdout or fallback to file
+   */
+  private async parseCoverageData(stdout: string, target: string): Promise<RawCoverageData | undefined> {
+    if (!stdout.trim()) return undefined;
+
+    let jsonOutput;
+    const trimmedStdout = stdout.trim();
+
+    // Extract JSON from stdout
+    const firstBrace = trimmedStdout.indexOf("{");
+    if (firstBrace !== -1) {
+      let braceCount = 0;
+      let jsonEnd = firstBrace;
+
+      for (let i = firstBrace; i < trimmedStdout.length; i++) {
+        if (trimmedStdout[i] === "{") braceCount++;
+        if (trimmedStdout[i] === "}") braceCount--;
+
+        if (braceCount === 0) {
+          jsonEnd = i + 1;
+          break;
+        }
+      }
+
+      const jsonString = trimmedStdout.substring(firstBrace, jsonEnd);
+      jsonOutput = JSON.parse(jsonString);
+    } else {
+      jsonOutput = JSON.parse(trimmedStdout);
+    }
+
+    if (jsonOutput.coverageMap && Object.keys(jsonOutput.coverageMap).length > 0) {
+      return transformCoverageData(jsonOutput.coverageMap, target);
+    }
+
+    // Fallback to coverage file
+    return await this.loadCoverageFromFile(target);
+  }
+
+  /**
+   * Load coverage data from file as fallback
+   */
+  private async loadCoverageFromFile(target: string): Promise<RawCoverageData | undefined> {
+    if (process.env.VITEST_MCP_DEBUG) {
+      console.error("No coverageMap found in JSON output, trying coverage-final.json fallback");
+    }
+
+    const coverageFilePath = resolve(this.projectRoot, "coverage", "coverage-final.json");
+
+    if (await fileExists(coverageFilePath)) {
+      const coverageFileContent = await readFile(coverageFilePath, "utf-8");
+      const rawCoverageFiles = JSON.parse(coverageFileContent);
+
+      const coverageData = transformCoverageData(rawCoverageFiles, target);
+
+      if (process.env.VITEST_MCP_DEBUG) {
+        console.error("Coverage data loaded from file, files count:", Object.keys(rawCoverageFiles).length);
+        console.error("Coverage summary:", coverageData?.summary);
+      }
+
+      return coverageData;
+    } else {
+      if (process.env.VITEST_MCP_DEBUG) {
+        console.error("Coverage file not found at:", coverageFilePath);
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Handle coverage data parsing errors
+   */
+  private handleParseError(parseError: unknown, result: CoverageExecutionResult): void {
+    if (process.env.VITEST_MCP_DEBUG || process.env.CI !== "true") {
+      console.error("Failed to parse coverage data:", parseError);
+      console.error("Raw stdout length:", result.stdout.length);
+      console.error("Raw stdout preview:", result.stdout.substring(0, 500));
+    }
+
+    if (process.env.CI === "true" && !result.success) {
+      console.error("Critical: Coverage parsing failed and command failed in CI");
+      console.error("Error:", parseError instanceof Error ? parseError.message : parseError);
+    }
+  }
+
+  /**
+   * Build Vitest coverage command with all necessary flags
+   */
+  private async buildCoverageCommand(
+    args: AnalyzeCoverageArgs,
+    config: ResolvedVitestMCPConfig,
+    targetPath: string
+  ): Promise<string[]> {
+    const command = ["npx", "vitest", "run"];
+
+    // Basic coverage settings
+    command.push("--browser.headless=true");
+    command.push("--ui=false");
+    command.push("--coverage.clean=true");
+    command.push("--coverage.cleanOnRerun=true");
+
+    // Handle exclusions
+    const excludePatterns = this.getExcludePatterns(args);
+    for (const pattern of excludePatterns) {
+      command.push("--exclude", pattern);
+    }
+
+    // Add target files
+    await this.addTargetToCommand(command, args, targetPath);
+
+    // Enable coverage
+    command.push("--coverage");
+
+    // Add coverage exclusions
+    for (const pattern of excludePatterns) {
+      command.push("--coverage.exclude", pattern);
+    }
+
+    command.push("--passWithNoTests");
+    command.push("--reporter=json");
+
+    // Add thresholds
+    this.addThresholds(command, config);
+
+    return command;
+  }
+
+  /**
+   * Get exclude patterns for coverage
+   */
+  private getExcludePatterns(args: AnalyzeCoverageArgs): string[] {
+    if (args.exclude && args.exclude.length > 0) {
+      return args.exclude;
+    }
+
+    return [
+      "**/storybook/**",
+      "**/.storybook/**",
+      "**/storybook-static/**",
+      "**/*.stories.*",
+      "**/*.story.*",
+    ];
+  }
+
+  /**
+   * Add target to command, finding test files if needed
+   */
+  private async addTargetToCommand(
+    command: string[],
+    args: AnalyzeCoverageArgs,
+    targetPath: string
+  ): Promise<void> {
+    if (
+      !targetPath.includes(".test.") &&
+      !targetPath.includes(".spec.") &&
+      !targetPath.includes("__tests__")
+    ) {
+      const testFilePath = await this.findTestFile(targetPath);
+      if (testFilePath) {
+        const relativeTestPath = relative(this.projectRoot, testFilePath);
+        command.push(relativeTestPath);
+        return;
+      }
+    }
+
+    const relativePath = relative(this.projectRoot, targetPath);
+    if (!relativePath || relativePath === ".") {
+      throw new Error(
+        "Cannot target project root. Please specify a specific file or subdirectory."
+      );
+    }
+    command.push(relativePath);
+  }
+
+  /**
+   * Find corresponding test file for a source file
+   */
+  private async findTestFile(targetPath: string): Promise<string | null> {
+    const baseName = targetPath.replace(/\.(ts|js|tsx|jsx)$/, "");
+    const fileExtension = targetPath.match(/\.(ts|js|tsx|jsx)$/)?.[1] || "ts";
+    const parentDir = targetPath.substring(0, targetPath.lastIndexOf("/"));
+    const fileName = targetPath
+      .substring(targetPath.lastIndexOf("/") + 1)
+      .replace(/\.(ts|js|tsx|jsx)$/, "");
+
+    const possibleTestFiles = [
+      `${baseName}.test.${fileExtension}`,
+      `${baseName}.spec.${fileExtension}`,
+      `${parentDir}/__tests__/${fileName}.test.${fileExtension}`,
+      `${parentDir}/__tests__/${fileName}.spec.${fileExtension}`,
+      `${parentDir}/tests/${fileName}.test.${fileExtension}`,
+      `${parentDir}/tests/${fileName}.spec.${fileExtension}`,
+      `${this.projectRoot}/tests/${fileName}.test.${fileExtension}`,
+      `${this.projectRoot}/__tests__/${fileName}.test.${fileExtension}`,
+    ];
+
+    for (const testFile of possibleTestFiles) {
+      if (await fileExists(testFile)) {
+        return testFile;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Add coverage thresholds to command
+   */
+  private addThresholds(command: string[], config: ResolvedVitestMCPConfig): void {
+    const thresholds = config.coverageDefaults.thresholds;
+    
+    if (thresholds) {
+      if (thresholds.lines !== undefined && thresholds.lines > 0) {
+        command.push(`--coverage.thresholds.lines=${thresholds.lines}`);
+      }
+      if (thresholds.functions !== undefined && thresholds.functions > 0) {
+        command.push(`--coverage.thresholds.functions=${thresholds.functions}`);
+      }
+      if (thresholds.branches !== undefined && thresholds.branches > 0) {
+        command.push(`--coverage.thresholds.branches=${thresholds.branches}`);
+      }
+      if (thresholds.statements !== undefined && thresholds.statements > 0) {
+        command.push(`--coverage.thresholds.statements=${thresholds.statements}`);
+      }
+    } else if (
+      config.coverageDefaults.threshold &&
+      config.coverageDefaults.threshold > 0
+    ) {
+      const threshold = config.coverageDefaults.threshold;
+      command.push(`--coverage.thresholds.lines=${threshold}`);
+      command.push(`--coverage.thresholds.functions=${threshold}`);
+      command.push(`--coverage.thresholds.branches=${threshold}`);
+      command.push(`--coverage.thresholds.statements=${threshold}`);
+    }
   }
 }
 
 /**
- * Execute Vitest coverage analysis
+ * Main handler for coverage analysis
  */
-async function executeCoverageAnalysis(
-  args: AnalyzeCoverageArgs,
-  config: ResolvedVitestMCPConfig,
-  projectRoot: string,
-  targetPath: string
-): Promise<CoverageExecutionResult> {
-  const command = await buildCoverageCommand(
-    args,
-    config,
-    projectRoot,
-    targetPath
-  );
-  const result = await executeCommand(command, projectRoot);
-
-  let coverageData: RawCoverageData | undefined;
-
-  if (result.success || result.stdout) {
-    try {
-      if (result.stdout.trim()) {
-        let jsonOutput;
-        const stdout = result.stdout.trim();
-
-        const firstBrace = stdout.indexOf("{");
-        if (firstBrace !== -1) {
-          let braceCount = 0;
-          let jsonEnd = firstBrace;
-
-          for (let i = firstBrace; i < stdout.length; i++) {
-            if (stdout[i] === "{") braceCount++;
-            if (stdout[i] === "}") braceCount--;
-
-            if (braceCount === 0) {
-              jsonEnd = i + 1;
-              break;
-            }
-          }
-
-          const jsonString = stdout.substring(firstBrace, jsonEnd);
-          jsonOutput = JSON.parse(jsonString);
-        } else {
-          jsonOutput = JSON.parse(stdout);
-        }
-
-        if (
-          jsonOutput.coverageMap &&
-          Object.keys(jsonOutput.coverageMap).length > 0
-        ) {
-          coverageData = transformCoverageData(
-            jsonOutput.coverageMap,
-            args.target
-          );
-        } else {
-          if (process.env.VITEST_MCP_DEBUG) {
-            console.error("JSON output keys:", Object.keys(jsonOutput));
-            console.error(
-              "No coverageMap found in JSON output, trying coverage-final.json fallback"
-            );
-          }
-
-          const coverageFilePath = resolve(
-            projectRoot,
-            "coverage",
-            "coverage-final.json"
-          );
-
-          if (await fileExists(coverageFilePath)) {
-            const coverageFileContent = await readFile(
-              coverageFilePath,
-              "utf-8"
-            );
-            const rawCoverageFiles = JSON.parse(coverageFileContent);
-
-            coverageData = transformCoverageData(rawCoverageFiles, args.target);
-
-            if (process.env.VITEST_MCP_DEBUG) {
-              console.error(
-                "Coverage data loaded from file, files count:",
-                Object.keys(rawCoverageFiles).length
-              );
-              console.error("Coverage summary:", coverageData?.summary);
-            }
-          } else {
-            if (process.env.VITEST_MCP_DEBUG) {
-              console.error("Coverage file not found at:", coverageFilePath);
-            }
-          }
-        }
-      }
-    } catch (parseError) {
-      if (process.env.VITEST_MCP_DEBUG || process.env.CI !== "true") {
-        console.error("Failed to parse coverage data:", parseError);
-        console.error("Raw stdout length:", result.stdout.length);
-        console.error("Raw stdout preview:", result.stdout.substring(0, 500));
-      }
-
-      if (process.env.CI === "true" && !result.success) {
-        console.error(
-          "Critical: Coverage parsing failed and command failed in CI"
-        );
-        console.error(
-          "Error:",
-          parseError instanceof Error ? parseError.message : parseError
-        );
-      }
-    }
-  }
-
-  return {
-    ...result,
-    coverageData,
-  };
+export async function handleAnalyzeCoverage(
+  args: AnalyzeCoverageArgs
+): Promise<ProcessedCoverageResult> {
+  const analyzer = new CoverageAnalyzer();
+  return await analyzer.execute(args);
 }
 
 /**
@@ -506,127 +720,6 @@ function transformCoverageData(
     files: relevantFiles,
     summary,
   };
-}
-
-/**
- * Build Vitest coverage command
- */
-async function buildCoverageCommand(
-  args: AnalyzeCoverageArgs,
-  config: ResolvedVitestMCPConfig,
-  projectRoot: string,
-  targetPath: string
-): Promise<string[]> {
-  const command = ["npx", "vitest", "run"];
-
-  command.push("--browser.headless=true");
-  command.push("--ui=false");
-
-  command.push("--coverage.clean=true");
-  command.push("--coverage.cleanOnRerun=true");
-
-  let excludePatterns: string[];
-
-  if (args.exclude && args.exclude.length > 0) {
-    excludePatterns = args.exclude;
-  } else {
-    excludePatterns = [
-      "**/storybook/**",
-      "**/.storybook/**",
-      "**/storybook-static/**",
-      "**/*.stories.*",
-      "**/*.story.*",
-    ];
-  }
-
-  for (const pattern of excludePatterns) {
-    command.push("--exclude", pattern);
-  }
-
-  if (
-    !targetPath.includes(".test.") &&
-    !targetPath.includes(".spec.") &&
-    !targetPath.includes("__tests__")
-  ) {
-    const baseName = targetPath.replace(/\.(ts|js|tsx|jsx)$/, "");
-    const fileExtension = targetPath.match(/\.(ts|js|tsx|jsx)$/)?.[1] || "ts";
-    const parentDir = targetPath.substring(0, targetPath.lastIndexOf("/"));
-    const fileName = targetPath
-      .substring(targetPath.lastIndexOf("/") + 1)
-      .replace(/\.(ts|js|tsx|jsx)$/, "");
-
-    const possibleTestFiles = [
-      `${baseName}.test.${fileExtension}`,
-      `${baseName}.spec.${fileExtension}`,
-
-      `${parentDir}/__tests__/${fileName}.test.${fileExtension}`,
-      `${parentDir}/__tests__/${fileName}.spec.${fileExtension}`,
-
-      `${parentDir}/tests/${fileName}.test.${fileExtension}`,
-      `${parentDir}/tests/${fileName}.spec.${fileExtension}`,
-
-      `${projectRoot}/tests/${fileName}.test.${fileExtension}`,
-      `${projectRoot}/__tests__/${fileName}.test.${fileExtension}`,
-    ];
-
-    let testFilePath: string | null = null;
-    for (const testFile of possibleTestFiles) {
-      if (await fileExists(testFile)) {
-        testFilePath = testFile;
-        break;
-      }
-    }
-
-    if (testFilePath) {
-      const relativeTestPath = relative(projectRoot, testFilePath);
-      command.push(relativeTestPath);
-    }
-  } else {
-    const relativePath = relative(projectRoot, targetPath);
-    if (!relativePath || relativePath === ".") {
-      throw new Error(
-        "Cannot target project root. Please specify a specific file or subdirectory."
-      );
-    }
-    command.push(relativePath);
-  }
-
-  command.push("--coverage");
-
-  for (const pattern of excludePatterns) {
-    command.push("--coverage.exclude", pattern);
-  }
-
-  command.push("--passWithNoTests");
-
-  command.push("--reporter=json");
-
-  const thresholds = config.coverageDefaults.thresholds;
-  if (thresholds) {
-    if (thresholds.lines !== undefined && thresholds.lines > 0) {
-      command.push(`--coverage.thresholds.lines=${thresholds.lines}`);
-    }
-    if (thresholds.functions !== undefined && thresholds.functions > 0) {
-      command.push(`--coverage.thresholds.functions=${thresholds.functions}`);
-    }
-    if (thresholds.branches !== undefined && thresholds.branches > 0) {
-      command.push(`--coverage.thresholds.branches=${thresholds.branches}`);
-    }
-    if (thresholds.statements !== undefined && thresholds.statements > 0) {
-      command.push(`--coverage.thresholds.statements=${thresholds.statements}`);
-    }
-  } else if (
-    config.coverageDefaults.threshold &&
-    config.coverageDefaults.threshold > 0
-  ) {
-    const threshold = config.coverageDefaults.threshold;
-    command.push(`--coverage.thresholds.lines=${threshold}`);
-    command.push(`--coverage.thresholds.functions=${threshold}`);
-    command.push(`--coverage.thresholds.branches=${threshold}`);
-    command.push(`--coverage.thresholds.statements=${threshold}`);
-  }
-
-  return command;
 }
 
 /**
