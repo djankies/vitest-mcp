@@ -111,17 +111,46 @@ jobs:
             
           elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             # Manual workflow dispatch - create new version
+            CURRENT_BRANCH="${{ github.event.inputs.branch }}"
+            
             if [ "${{ github.event.inputs.release_type }}" == "prerelease" ]; then
+              # Create prerelease version
               NEW_VERSION=$(npm version prerelease --preid=${{ github.event.inputs.prerelease }} --no-git-tag-version)
+              VERSION="${NEW_VERSION#v}"  # Remove 'v' prefix from npm version output
               NPM_TAG="${{ github.event.inputs.prerelease }}"
               IS_PRERELEASE=true
             else
-              NEW_VERSION=$(npm version ${{ github.event.inputs.release_type }} --no-git-tag-version)
-              NPM_TAG="latest"
-              IS_PRERELEASE=false
+              # Regular version bump - but check if we're on develop branch
+              if [ "$CURRENT_BRANCH" == "develop" ]; then
+                # On develop branch, create prerelease even for regular version types
+                NEW_VERSION=$(npm version pre${{ github.event.inputs.release_type }} --preid=beta --no-git-tag-version)
+                VERSION="${NEW_VERSION#v}"
+                NPM_TAG="beta"
+                IS_PRERELEASE=true
+              else
+                # On main branch, create regular release
+                NEW_VERSION=$(npm version ${{ github.event.inputs.release_type }} --no-git-tag-version)
+                VERSION="${NEW_VERSION#v}"
+                NPM_TAG="latest"
+                IS_PRERELEASE=false
+              fi
             fi
             
-            VERSION="${NEW_VERSION}"
+            # Double-check npm tag based on actual version created
+            if [[ "$VERSION" == *"-beta."* ]]; then
+              NPM_TAG="beta"
+              IS_PRERELEASE=true
+            elif [[ "$VERSION" == *"-alpha."* ]]; then
+              NPM_TAG="alpha" 
+              IS_PRERELEASE=true
+            elif [[ "$VERSION" == *"-rc."* ]]; then
+              NPM_TAG="rc"
+              IS_PRERELEASE=true
+            elif [ "$NPM_TAG" == "latest" ] && [[ "$VERSION" == *"-"* ]]; then
+              # Safety check: if version has prerelease suffix but we set latest, fix it
+              NPM_TAG="beta"
+              IS_PRERELEASE=true
+            fi
             
             echo "mode=workflow_dispatch" >> $GITHUB_OUTPUT
             echo "should_create_release=true" >> $GITHUB_OUTPUT
@@ -139,6 +168,7 @@ jobs:
           echo "Detected version: $VERSION"
           echo "npm tag: $NPM_TAG"
           echo "Is prerelease: $IS_PRERELEASE"
+          echo "Branch: $CURRENT_BRANCH"
           
       - name: Generate changelog (for workflow dispatch only)
         if: steps.version.outputs.mode == 'workflow_dispatch'
@@ -257,5 +287,5 @@ jobs:
           prerelease: ${{ steps.version.outputs.is_prerelease }}
           
       - name: Publish to npm
-        if: github.event.inputs.publish != 'false'
+        if: github.event.inputs.publish == 'true' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/'))
         run: npm publish --provenance --access public --tag ${{ steps.version.outputs.npm_tag }}
