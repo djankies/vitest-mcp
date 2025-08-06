@@ -42,11 +42,6 @@ export interface VitestMCPConfig {
      */
     format?: 'summary' | 'detailed';
     
-    /**
-     * Include detailed line-by-line analysis by default
-     * @default false
-     */
-    includeDetails?: boolean;
     
     /**
      * Custom thresholds for different metrics
@@ -57,6 +52,12 @@ export interface VitestMCPConfig {
       branches?: number;
       statements?: number;
     };
+    
+    /**
+     * Whether thresholds were explicitly set (not using defaults)
+     * @internal
+     */
+    thresholdsExplicitlySet?: boolean;
     
     /**
      * Patterns to exclude from coverage analysis
@@ -154,7 +155,9 @@ export interface VitestMCPConfig {
  */
 export type ResolvedVitestMCPConfig = Required<{
   testDefaults: Required<NonNullable<VitestMCPConfig['testDefaults']>>;
-  coverageDefaults: Required<NonNullable<VitestMCPConfig['coverageDefaults']>>;
+  coverageDefaults: Required<NonNullable<VitestMCPConfig['coverageDefaults']>> & {
+    thresholdsExplicitlySet: boolean;
+  };
   discovery: Required<NonNullable<VitestMCPConfig['discovery']>>;
   server: Required<NonNullable<VitestMCPConfig['server']>>;
   safety: Required<NonNullable<VitestMCPConfig['safety']>>;

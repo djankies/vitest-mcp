@@ -9,7 +9,10 @@ import {
   TestResultContext, 
   TestSummary, 
   OutputProcessor,
-  StructuredTestResult
+  TestResults,
+  FailedTestDetails,
+  FailedTestSummary,
+  SkippedTest
 } from '../tools/run-tests.js';
 import { readFile } from 'fs/promises';
 
@@ -61,12 +64,6 @@ interface ParsedError {
   rawError?: string;
 }
 
-interface FailedTest {
-  file: string;
-  testName: string;
-  error: ParsedError;
-  duration?: number;
-}
 
 /**
  * Main output processor implementation
@@ -75,26 +72,45 @@ export class VitestOutputProcessor implements OutputProcessor {
   async process(result: RunTestsResult, format: TestFormat, context: TestResultContext): Promise<ProcessedTestResult> {
     // Parse JSON data for all formats since we always use JSON reporter
     const jsonData = this.parseVitestJson(result.stdout);
-    const summary = jsonData ? this.extractSummaryFromJson(jsonData) : undefined;
+    
+    if (process.env.VITEST_MCP_DEBUG) {
+      console.error('[DEBUG] Processing output:');
+      console.error('- stdout length:', result.stdout.length);
+      console.error('- stdout sample:', result.stdout.substring(0, 200));
+      console.error('- jsonData parsed:', !!jsonData);
+      if (jsonData) {
+        console.error('- numTotalTests:', jsonData.numTotalTests);
+        console.error('- numPassedTests:', jsonData.numPassedTests);
+      }
+    }
+    
+    const summary = jsonData ? this.extractSummaryFromJson(jsonData) : this.getErrorSummary();
 
-    // Generate structured data from JSON
-    const structured = await this.generateStructuredResult(jsonData, result, summary, format);
+    // Generate test results from JSON
+    const testResults = await this.generateTestResults(jsonData, format);
 
     // Update context with actual test count from summary
     const updatedContext: TestResultContext = {
       ...context,
-      actualTestCount: summary?.totalTests || context.actualTestCount
+      actualTestCount: summary.totalTests,
+      executionTime: result.duration
     };
 
-    return {
-      ...result,
-      stdout: result.stdout, // Keep original stdout
-      format,
-      processedOutput: '', // Not used anymore, structured data is in structured property
-      summary,
+    // Build the clean response structure
+    const processedResult: ProcessedTestResult = {
+      command: result.command,
+      success: result.success && result.exitCode === 0,
       context: updatedContext,
-      structured
+      summary,
+      format
     };
+
+    // Only include testResults if there are failures or skipped tests
+    if (testResults && (testResults.failedTests || testResults.skippedTests)) {
+      processedResult.testResults = testResults;
+    }
+
+    return processedResult;
   }
 
 
@@ -103,38 +119,90 @@ export class VitestOutputProcessor implements OutputProcessor {
    */
   private parseVitestJson(stdout: string): VitestJsonResult | null {
     try {
+      // First try to parse the entire stdout as JSON
+      const trimmed = stdout.trim();
+      if (trimmed.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          // Verify it's actually Vitest JSON output
+          if (parsed.numTotalTests !== undefined || parsed.testResults) {
+            // Check if this is our custom reporter output with logs
+            if (parsed.__logs) {
+              // Store logs separately and remove from JSON structure
+              delete parsed.__logs;
+            }
+            return parsed;
+          }
+        } catch {
+          // Not valid JSON, continue with other methods
+        }
+      }
+      
       // Vitest JSON output might have non-JSON content before/after
-      // Look for the actual JSON object
+      // Try to find the JSON by looking for the characteristic structure
       const lines = stdout.split('\n');
-      let jsonLine = '';
       
       for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('{') && trimmed.includes('"version"')) {
-          jsonLine = trimmed;
-          break;
+        const trimmedLine = line.trim();
+        // Look for lines that start with { and contain Vitest-specific fields
+        if (trimmedLine.startsWith('{') && 
+            (trimmedLine.includes('"numTotalTests"') || 
+             trimmedLine.includes('"testResults"') ||
+             trimmedLine.includes('"numTotalTestSuites"'))) {
+          try {
+            const parsed = JSON.parse(trimmedLine);
+            // Verify it's actually Vitest JSON output
+            if (parsed.numTotalTests !== undefined || parsed.testResults) {
+              return parsed;
+            }
+          } catch {
+            // Not valid JSON, continue searching
+            continue;
+          }
         }
       }
 
-      if (!jsonLine) {
-        // Try to find any line that looks like complete JSON
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-            try {
-              const parsed = JSON.parse(trimmed);
-              if (parsed.testResults || parsed.numTotalTests !== undefined) {
-                return parsed;
-              }
-            } catch {
-              continue;
+      // If no single-line JSON found, try to extract JSON block
+      const jsonStartIndex = stdout.indexOf('{"numTotalTestSuites"');
+      if (jsonStartIndex === -1) {
+        // Try alternative start patterns
+        const altStartIndex = stdout.indexOf('{"numTotalTests"');
+        if (altStartIndex !== -1) {
+          // Find the end of the JSON object
+          let braceCount = 0;
+          let jsonEnd = altStartIndex;
+          for (let i = altStartIndex; i < stdout.length; i++) {
+            if (stdout[i] === '{') braceCount++;
+            if (stdout[i] === '}') braceCount--;
+            if (braceCount === 0) {
+              jsonEnd = i + 1;
+              break;
             }
+          }
+          const jsonString = stdout.substring(altStartIndex, jsonEnd);
+          try {
+            return JSON.parse(jsonString);
+          } catch {
+            return null;
           }
         }
         return null;
       }
 
-      return JSON.parse(jsonLine);
+      // Find the end of the JSON object
+      let braceCount = 0;
+      let jsonEnd = jsonStartIndex;
+      for (let i = jsonStartIndex; i < stdout.length; i++) {
+        if (stdout[i] === '{') braceCount++;
+        if (stdout[i] === '}') braceCount--;
+        if (braceCount === 0) {
+          jsonEnd = i + 1;
+          break;
+        }
+      }
+
+      const jsonString = stdout.substring(jsonStartIndex, jsonEnd);
+      return JSON.parse(jsonString);
     } catch {
       return null;
     }
@@ -176,7 +244,7 @@ export class VitestOutputProcessor implements OutputProcessor {
         }
         
         // Update total
-        summary.totalTests = summary.passed + summary.failed + summary.skipped;
+        summary.totalTests = summary.passed + summary.failed + (summary.skipped || 0);
       }
       
       // Also look for comprehensive test result patterns like "Tests  2 passed | 3 failed"  
@@ -198,6 +266,19 @@ export class VitestOutputProcessor implements OutputProcessor {
     }
 
     return summary;
+  }
+
+  /**
+   * Get error summary for when parsing fails
+   */
+  private getErrorSummary(): TestSummary {
+    return {
+      totalTests: 0,
+      passed: 0,
+      failed: 0,
+      skipped: 0,
+      duration: 0
+    };
   }
 
   /**
@@ -567,162 +648,98 @@ export class VitestOutputProcessor implements OutputProcessor {
 
 
   /**
-   * Generate structured test result for LLM consumption
+   * Generate test results in the new format
    */
-  private async generateStructuredResult(
-    jsonData: VitestJsonResult | null, 
-    result: RunTestsResult,
-    summary?: TestSummary,
-    format?: TestFormat
-  ): Promise<StructuredTestResult> {
-    // If we don't have JSON data, create a basic structured result
+  private async generateTestResults(
+    jsonData: VitestJsonResult | null,
+    format: TestFormat
+  ): Promise<TestResults | undefined> {
     if (!jsonData) {
-      return {
-        status: result.success ? 'success' : 'failure',
-        summary: {
-          total: summary?.totalTests || 0,
-          passed: summary?.passed || 0,
-          failed: summary?.failed || 0,
-          skipped: summary?.skipped || 0,
-          duration: summary?.duration || 0,
-          passRate: summary?.totalTests ? ((summary?.passed || 0) / summary.totalTests) * 100 : 0
-        }
-      };
+      return undefined;
     }
 
-    // Calculate pass rate
-    const passRate = jsonData.numTotalTests > 0 
-      ? (jsonData.numPassedTests / jsonData.numTotalTests) * 100 
-      : 0;
-    
-    // Calculate duration from test results if endTime is not available
-    let duration = 0;
-    if (jsonData.endTime && jsonData.startTime) {
-      duration = jsonData.endTime - jsonData.startTime;
-    } else if (jsonData.testResults && jsonData.testResults.length > 0) {
-      // Sum up all test suite durations
-      for (const suite of jsonData.testResults) {
-        if (suite.endTime && suite.startTime) {
-          duration += suite.endTime - suite.startTime;
-        } else {
-          // Fallback to summing individual test durations
-          for (const test of suite.assertionResults || []) {
-            duration += test.duration || 0;
+    const testResults: TestResults = {};
+
+    // Process failed tests
+    const failedTestsByFile = new Map<string, Array<FailedTestDetails | FailedTestSummary>>();
+    const skippedTestsByFile = new Map<string, Array<SkippedTest>>();
+
+    for (const suite of jsonData.testResults || []) {
+      const filePath = suite.name;
+
+      for (const assertion of suite.assertionResults || []) {
+        const testName = assertion.fullName || `${assertion.ancestorTitles.join(' › ')} › ${assertion.title}`;
+
+        if (assertion.status === 'failed') {
+          if (!failedTestsByFile.has(filePath)) {
+            failedTestsByFile.set(filePath, []);
           }
-        }
-      }
-    }
 
-    const structured: StructuredTestResult = {
-      status: jsonData.success ? 'success' : 'failure',
-      summary: {
-        total: jsonData.numTotalTests,
-        passed: jsonData.numPassedTests,
-        failed: jsonData.numFailedTests,
-        skipped: jsonData.numSkippedTests,
-        duration: Math.round(duration),
-        passRate: Math.round(passRate * 100) / 100 // Round to 2 decimal places
-      }
-    };
-
-    // For summary format: include summary data and failing test names
-    if (format === 'summary') {
-      // Include basic information about failed tests (names only, no detailed error info)
-      if (jsonData.numFailedTests > 0) {
-        const failedTestNames: Array<{
-          file: string;
-          testName: string;
-        }> = [];
-
-        for (const suite of jsonData.testResults || []) {
-          const fileName = suite.name.split('/').pop() || suite.name;
-          
-          for (const assertion of suite.assertionResults || []) {
-            if (assertion.status === 'failed') {
-              failedTestNames.push({
-                file: fileName,
-                testName: assertion.fullName || `${assertion.ancestorTitles.join(' › ')} › ${assertion.title}`
-              });
-            }
-          }
-        }
-
-        if (failedTestNames.length > 0) {
-          structured.failedTestNames = failedTestNames;
-        }
-      }
-
-      return structured;
-    }
-
-    // For detailed format: include detailed information about failing tests and summary of passing tests
-    if (format === 'detailed') {
-      // Build detailed information for failed tests only
-      const failedTests: FailedTest[] = [];
-
-      // Summary of passed tests by file
-      const passedTestsSummary: Array<{
-        file: string;
-        passedCount: number;
-        totalDuration: number;
-      }> = [];
-
-      for (const suite of jsonData.testResults || []) {
-        const fileName = suite.name.split('/').pop() || suite.name;
-        let passedCount = 0;
-        let totalDuration = 0;
-
-        for (const assertion of suite.assertionResults || []) {
-          if (assertion.status === 'passed') {
-            passedCount++;
-            totalDuration += assertion.duration || 0;
-          } else if (assertion.status === 'failed') {
-            const failedTest: FailedTest = {
-              file: fileName,
-              testName: assertion.fullName || `${assertion.ancestorTitles.join(' › ')} › ${assertion.title}`,
-              duration: assertion.duration ? Math.round(assertion.duration * 100) / 100 : undefined,
-              error: {
-                type: 'UnknownError',
-                message: 'Test failed',
-                cleanStack: []
-              }
+          if (format === 'detailed' && assertion.failureMessages?.length) {
+            // Detailed format with full error information
+            const errorMessage = assertion.failureMessages[0];
+            const parsedError = await this.parseError(errorMessage, suite.name);
+            
+            const detailedTest: FailedTestDetails = {
+              testName,
+              duration: assertion.duration,
+              errorType: parsedError.type,
+              message: parsedError.message,
+              stack: parsedError.cleanStack,
+              actual: parsedError.actual,
+              expected: parsedError.expected,
+              codeSnippet: parsedError.codeSnippet
             };
-
-            // Add parsed error information if available
-            if (assertion.failureMessages?.length) {
-              const errorMessage = assertion.failureMessages[0];
-              const parsedError = await this.parseError(
-                errorMessage, 
-                suite.name
-              );
-              failedTest.error = parsedError;
-            }
-
-            failedTests.push(failedTest);
+            
+            failedTestsByFile.get(filePath)!.push(detailedTest);
+          } else {
+            // Summary format with basic error information
+            const errorMessage = assertion.failureMessages?.[0] || 'Test failed';
+            const parsedError = await this.parseError(errorMessage, suite.name);
+            
+            const summaryTest: FailedTestSummary = {
+              testName,
+              errorType: parsedError.type,
+              message: parsedError.message
+            };
+            
+            failedTestsByFile.get(filePath)!.push(summaryTest);
           }
+        } else if (assertion.status === 'skipped') {
+          if (!skippedTestsByFile.has(filePath)) {
+            skippedTestsByFile.set(filePath, []);
+          }
+          
+          const skippedTest: SkippedTest = {
+            testName
+          };
+          
+          skippedTestsByFile.get(filePath)!.push(skippedTest);
         }
-
-        if (passedCount > 0) {
-          passedTestsSummary.push({
-            file: fileName,
-            passedCount,
-            totalDuration: Math.round(totalDuration * 100) / 100
-          });
-        }
-      }
-
-      // Add detailed failure information
-      if (failedTests.length > 0) {
-        structured.failedTests = failedTests;
-      }
-
-      // Add passed tests summary
-      if (passedTestsSummary.length > 0) {
-        structured.passedTestsSummary = passedTestsSummary;
       }
     }
 
-    return structured;
+    // Convert maps to arrays
+    if (failedTestsByFile.size > 0) {
+      testResults.failedTests = Array.from(failedTestsByFile.entries()).map(([file, tests]) => ({
+        file,
+        tests
+      }));
+    }
+
+    if (skippedTestsByFile.size > 0) {
+      testResults.skippedTests = Array.from(skippedTestsByFile.entries()).map(([file, tests]) => ({
+        file,
+        tests  
+      }));
+    }
+
+    // Return undefined if no failures or skipped tests
+    if (!testResults.failedTests && !testResults.skippedTests) {
+      return undefined;
+    }
+
+    return testResults;
   }
 }
 

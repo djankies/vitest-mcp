@@ -27,13 +27,13 @@ describe('list-tests', () => {
   describe('listTestsTool', () => {
     it('should have correct tool definition', () => {
       expect(listTestsTool.name).toBe('list_tests');
-      expect(listTestsTool.description).toBe('Find and list test files in the project or specified directory');
+      expect(listTestsTool.description).toBe('Discover and catalog test files across the project with support for common test file patterns (.test.*, .spec.*). Recursively searches directories and provides structured file information including paths and relative locations. Useful for understanding test organization and coverage scope. Requires set_project_root to be called first.\n\nUSE WHEN: User wants to explore test structure, find test files, understand test organization, or asks "what tests exist", "show me test files", or mentions exploring/finding tests. Also use when "vitest-mcp:" prefix is included and context involves test discovery.');
       expect(listTestsTool.inputSchema).toEqual({
         type: 'object',
         properties: {
           path: {
             type: 'string',
-            description: 'Directory path to search for test files (defaults to project root)'
+            description: 'Optional directory path to search for test files. Can be relative (e.g., "./src/components") or absolute. If not provided, searches the entire project root. Useful for limiting search scope to specific directories or modules.'
           }
         }
       });
@@ -55,7 +55,10 @@ describe('list-tests', () => {
       const result = await handleListTests({});
 
       expect(result).toEqual({
-        testFiles: mockTestFiles,
+        testFiles: [
+          { path: '/project/src/test1.test.ts', relativePath: 'src/test1.test.ts' },
+          { path: '/project/src/test2.spec.js', relativePath: 'src/test2.spec.js' }
+        ],
         totalCount: 2,
         searchPath: '/project',
         projectRoot: '/project'
@@ -140,8 +143,12 @@ describe('list-tests', () => {
 
       const result = await handleListTests({});
 
-      expect(result.testFiles).toEqual(mockTestFiles);
-      expect(result.testFiles.map(f => f.type)).toEqual(['unit', 'e2e', 'integration', 'unknown']);
+      expect(result.testFiles).toEqual([
+        { path: '/project/tests/unit/test.ts', relativePath: 'tests/unit/test.ts' },
+        { path: '/project/tests/e2e/app.test.ts', relativePath: 'tests/e2e/app.test.ts' },
+        { path: '/project/tests/integration/api.test.ts', relativePath: 'tests/integration/api.test.ts' },
+        { path: '/project/random.test.ts', relativePath: 'random.test.ts' }
+      ]);
     });
   });
 });

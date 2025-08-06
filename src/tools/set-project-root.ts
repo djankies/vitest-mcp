@@ -37,17 +37,17 @@ export interface SetProjectRootResult {
  */
 export async function handleSetProjectRoot(args: SetProjectRootArgs): Promise<SetProjectRootResult> {
   try {
-    // Validate the path argument
+    
     if (!args.path || args.path.trim() === '') {
       throw new Error('Path parameter is required');
     }
 
     const requestedPath = args.path.trim();
 
-    // Get configuration to check for allowed paths restriction
+    
     const config = await getConfig();
     
-    // Check if path restrictions are configured
+    
     if (config.safety?.allowedPaths) {
       const allowedPaths = Array.isArray(config.safety.allowedPaths) 
         ? config.safety.allowedPaths 
@@ -60,14 +60,14 @@ export async function handleSetProjectRoot(args: SetProjectRootArgs): Promise<Se
         const resolvedAllowedPath = resolve(allowedPath);
         const resolvedRequestedPath = resolve(requestedPath);
         
-        // Check if requested path is within or equal to an allowed path
+        
         if (resolvedRequestedPath === resolvedAllowedPath || 
             resolvedRequestedPath.startsWith(resolvedAllowedPath + '/')) {
           isAllowed = true;
           break;
         }
         
-        // Build helpful message showing what paths are allowed
+        
         if (restrictionMessage) {
           restrictionMessage += ', ';
         }
@@ -83,21 +83,26 @@ export async function handleSetProjectRoot(args: SetProjectRootArgs): Promise<Se
       }
     }
 
-    // Set the project root
+    
     await projectContext.setProjectRoot(requestedPath);
     
-    // Get project info for response
+    
     const projectInfo = projectContext.getProjectInfo();
     
     if (!projectInfo) {
       throw new Error('Failed to set project root');
     }
 
+    
+    const devModeNotice = process.env.VITEST_MCP_DEV_MODE === 'true' 
+      ? ' (Development mode enabled - self-targeting allowed)' 
+      : '';
+    
     return {
       success: true,
       projectRoot: projectInfo.path,
       projectName: projectInfo.name,
-      message: `Project root set to: ${projectInfo.path}`
+      message: `Project root set to: ${projectInfo.path}${devModeNotice}`
     };
     
   } catch (error) {

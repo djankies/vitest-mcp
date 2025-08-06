@@ -87,7 +87,26 @@ describe('analyze-coverage exclude patterns', () => {
   it('should use default exclude patterns from config', async () => {
     const spawn = vi.mocked(await import('child_process').then(m => m.spawn));
     const mockProcess = {
-      stdout: { on: vi.fn() },
+      stdout: { 
+        on: vi.fn((event, cb) => {
+          if (event === 'data') {
+            // Provide minimal valid JSON output with coverage structure
+            const mockOutput = JSON.stringify({
+              testResults: [],
+              coverageMap: {
+                files: {},
+                summary: {
+                  lines: { total: 0, covered: 0, skipped: 0, pct: 0 },
+                  functions: { total: 0, covered: 0, skipped: 0, pct: 0 },
+                  statements: { total: 0, covered: 0, skipped: 0, pct: 0 },
+                  branches: { total: 0, covered: 0, skipped: 0, pct: 0 }
+                }
+              }
+            });
+            cb(Buffer.from(mockOutput));
+          }
+        })
+      },
       stderr: { on: vi.fn() },
       on: vi.fn((event, cb) => {
         if (event === 'close') {
@@ -96,7 +115,7 @@ describe('analyze-coverage exclude patterns', () => {
       }),
       kill: vi.fn(),
     };
-    spawn.mockReturnValue(mockProcess as any);
+    spawn.mockReturnValue(mockProcess as unknown as ReturnType<typeof spawn>);
 
     await handleAnalyzeCoverage({
       target: './src/api',
@@ -123,7 +142,26 @@ describe('analyze-coverage exclude patterns', () => {
   it('should allow custom exclude patterns to override defaults', async () => {
     const spawn = vi.mocked(await import('child_process').then(m => m.spawn));
     const mockProcess = {
-      stdout: { on: vi.fn() },
+      stdout: { 
+        on: vi.fn((event, cb) => {
+          if (event === 'data') {
+            // Provide minimal valid JSON output with coverage structure
+            const mockOutput = JSON.stringify({
+              testResults: [],
+              coverageMap: {
+                files: {},
+                summary: {
+                  lines: { total: 0, covered: 0, skipped: 0, pct: 0 },
+                  functions: { total: 0, covered: 0, skipped: 0, pct: 0 },
+                  statements: { total: 0, covered: 0, skipped: 0, pct: 0 },
+                  branches: { total: 0, covered: 0, skipped: 0, pct: 0 }
+                }
+              }
+            });
+            cb(Buffer.from(mockOutput));
+          }
+        })
+      },
       stderr: { on: vi.fn() },
       on: vi.fn((event, cb) => {
         if (event === 'close') {
@@ -132,7 +170,7 @@ describe('analyze-coverage exclude patterns', () => {
       }),
       kill: vi.fn(),
     };
-    spawn.mockReturnValue(mockProcess as any);
+    spawn.mockReturnValue(mockProcess as unknown as ReturnType<typeof spawn>);
 
     await handleAnalyzeCoverage({
       target: './src/api',

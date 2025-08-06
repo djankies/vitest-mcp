@@ -2,34 +2,22 @@
 
 AI-optimized Vitest interface with structured output, visual debugging, and intelligent coverage analysis.
 
-## Problem & Solution
+## Why Use This?
 
-### The Problem
+Raw Vitest output is verbose and difficult for AI to parse. This MCP server provides:
 
-When AI assistants help with testing, they typically run raw Vitest commands that produce:
+- **Structured JSON output** optimized for AI consumption
+- **Smart targeting** to prevent accidental full test suite runs
+- **Console log capture** to debug test failures
+- **Coverage gap analysis** with line-by-line insights
 
-- ❌ **Verbose terminal output** that's hard for AI to parse
-- ❌ **Missing failure context** - no code snippets or visual indicators  
-- ❌ **Accidental full test runs** when no target is specified
-- ❌ **Basic coverage metrics** without actionable insights
+## Key Features
 
-### The Solution
-
-This MCP server provides AI-optimized testing tools that deliver:
-
-- ✅ **Structured JSON output** designed for AI consumption
-- ✅ **Visual debugging context** with code snippets and failure markers
-- ✅ **Intelligent targeting** prevents accidental full test suite runs
-- ✅ **Coverage gap analysis** with line-by-line insights and recommendations
-
-## Features
-
-- **🎯 Smart Test Execution** - Run specific files/folders with structured output
-- **📊 Coverage Analysis** - Line-by-line gap analysis with actionable insights  
-- **📁 Test Discovery** - Find and organize test files across your project
-- **🔗 Claude Code Hooks** - Automatic interception of Vitest commands
-- **🛡️ Safety Guards** - Prevents accidental full project test runs
-- **🏢 Multi-Repository Support** - Work across multiple projects in a single session
+- **Smart Test Execution** with structured output
+- **Console Log Capture** for debugging (`showLogs` parameter)
+- **Coverage Analysis** with gap insights
+- **Multi-Repository Support** in single session
+- **Safety Guards** prevent full project runs
 
 ## Quick Start
 
@@ -53,56 +41,35 @@ Add this to your Claude Desktop configuration:
 
 ### 2. Restart Claude Desktop
 
-### 3. Set Project Root (Required)
+### 3. Use It
 
-Before using any tools, you must first specify which repository to work with:
+Try asking:
 
-```javascript
-set_project_root({ path: "/absolute/path/to/your/project" })
-```
+- "Run the tests for this component"
+- "Debug this test file"
+- "Analyze the coverage for this file"
 
-### 4. Start Using
+Or prepend you message with `vitest-mcp:`, to ensure the tools are used:
 
-Ask Claude to:
-
-- "Run tests in the components folder"
-- "Check coverage for the auth module"
-- "List all test files"
+- "vitest-mcp: run tests for this component"
+- "vitest-mcp: debug this test file"
+- "vitest-mcp: analyze coverage for this file"
 
 ## Requirements
 
-### Minimum Versions
-
 - **Node.js**: 18+
-- **Vitest**: 0.34.0+ (3.0.0+ recommended)
-- **Coverage Provider**: `@vitest/coverage-v8` (for coverage analysis)
+- **Vitest**: 0.34.0+
+- **Coverage**: `@vitest/coverage-v8` (for coverage analysis)
 
 ```bash
 npm install --save-dev vitest@latest @vitest/coverage-v8@latest
 ```
 
-### Project Setup
-
-Ensure your `vitest.config.ts` includes:
-
-```typescript
-export default defineConfig({
-  test: {
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'html']
-    }
-  }
-})
-```
-
 ## Tools
 
-### `set_project_root` (Required First)
+### `set_project_root`
 
-**IMPORTANT**: This must be called before using any other tools.
-
-Set the project root directory for all subsequent operations.
+**Required first** - Set the project root for all operations.
 
 ```javascript
 set_project_root({ 
@@ -110,15 +77,7 @@ set_project_root({
 })
 ```
 
-**Parameters:**
-
-- `path` (required): Absolute path to the project root directory
-
-**Features:**
-
-- Validates project has `package.json` or `vitest.config`
-- Prevents running on the MCP package itself
-- Supports path restrictions via configuration
+> 🚨 IMPORTANT: Must set project root before any other Vitest tools are used.
 
 ### `list_tests`
 
@@ -130,130 +89,112 @@ list_tests({ directory: "./src" })
 
 ### `run_tests`
 
-Execute tests with AI-optimized output.
-
-```javascript
-run_tests({ 
-  target: "./src/components", 
-  format: "detailed", // or "summary"
-  project: "client" // optional: specify Vitest project (for monorepos)
-})
-```
+Execute tests with structured output.
 
 **Parameters:**
-- `target` (required): File path or directory to test
-- `format` (optional): Output format - "summary" or "detailed"
-- `project` (optional): Name of the Vitest project (as defined in vitest.workspace or vitest.config)
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `target` | string | Yes | File or directory to test |
+| `format` | string | No | Output format: "summary" or "detailed" (auto-detects based on results) |
+| `showLogs` | boolean | No | Include console output with `[stdout]` or `[stderr]` prefixes |
+| `project` | string | No | Vitest project name for monorepos |
 
 ### `analyze_coverage`
 
 Analyze test coverage with gap insights.
 
-```javascript
-analyze_coverage({
-  target: "./src/api",
-  threshold: 80,
-  format: "detailed",
-  exclude: ["**/*.stories.*", "**/e2e/**"]  // Optional: exclude patterns
-})
-```
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `target` | string | Yes | File or directory to analyze coverage for |
+| `threshold` | number | No | Minimum coverage percentage (default: 80) |
+| `format` | string | No | Output format: "summary" or "detailed" |
+| `includeDetails` | boolean | No | Include line-by-line coverage analysis |
+| `exclude` | string[] | No | Patterns to exclude from coverage (e.g., ["**/*.stories.*"]) |
+| `thresholds` | object | No | Custom thresholds for lines, functions, branches, statements |
 
-**Parameters:**
-- `target` (required): File path or directory to analyze
-- `threshold` (optional): Coverage threshold percentage (default: 80)
-- `format` (optional): "summary" or "detailed" output
-- `exclude` (optional): Array of patterns to exclude from coverage (e.g., Storybook files)
+Automatically excludes test utilities, mocks, stories, and e2e files.
 
-Default excludes automatically applied:
-- `**/*.stories.*` - Storybook story files
-- `**/*.story.*` - Alternative Storybook naming
-- `**/.storybook/**` - Storybook configuration directories
-- `**/storybook-static/**` - Built Storybook files
-- `**/e2e/**` - End-to-end test directories
-- `**/*.e2e.*` - E2E test files
-- `**/test-utils/**` - Test utility directories
-- `**/mocks/**` - Mock directories
-- `**/__mocks__/**` - Jest-style mock directories
-- `**/setup-tests.*` - Test setup files
-- `**/test-setup.*` - Alternative test setup naming
-
-## Multi-Repository Workflow
-
-Work across multiple projects in a single Claude session:
+## Multi-Repository Support
 
 ```javascript
-// Switch to project A
-set_project_root({ path: "/Users/username/Projects/frontend" })
-run_tests({ target: "./src/components" })
+// Project A
+set_project_root({ path: "/path/to/frontend" })
+run_tests({ target: "./src" })
 
-// Switch to project B
-set_project_root({ path: "/Users/username/Projects/backend" })
-run_tests({ target: "./src/api" })
-
-// Switch back to project A
-set_project_root({ path: "/Users/username/Projects/frontend" })
-analyze_coverage({ target: "./src/utils" })
+// Project B
+set_project_root({ path: "/path/to/backend" })
+run_tests({ target: "./src" })
 ```
 
-## Claude Code Hook Integration (Recommended)
+## Claude Code Hook (Optional)
 
-Automatically intercept Vitest commands and suggest MCP tools.
-
-### Copy hook script
+Automatically redirect Vitest commands to MCP tools:
 
 ```bash
+# Download hook
 curl -o .claude/vitest-hook.sh https://raw.githubusercontent.com/djankies/vitest-mcp/main/hooks/vitest-hook.sh
 chmod +x .claude/vitest-hook.sh
 ```
 
-### Update .claude/settings.local.json
+Add to `.claude/settings.local.json`:
 
 ```json
 {
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/vitest-hook.sh"
-          }
-        ]
-      }
-    ]
+    "PreToolUse": [{
+      "matcher": "Bash",
+      "hooks": [{ "type": "command", "command": ".claude/vitest-hook.sh" }]
+    }]
   }
 }
 ```
 
-## Monorepo Support
+Bypass with: `vitest --bypass-hook`
 
-The `run_tests` tool supports Vitest projects in monorepo setups through the `project` parameter:
+## LLM instructions
 
-```javascript
-// Run tests for a specific project in a monorepo
-run_tests({
-  target: "./packages/client/src",
-  project: "client"  // Matches project name in vitest.workspace.ts
-})
+Encourage claude or your ide to use the tools correctly: [CLAUDE.example.md](./CLAUDE.example.md)
 
-// Run tests for another project
-run_tests({
-  target: "./packages/api/src", 
-  project: "api"
-})
+## Configuration
+
+### Coverage Thresholds
+
+Set coverage thresholds via command-line flags when starting the server:
+
+```bash
+# Set overall threshold for all metrics
+npx @djankies/vitest-mcp --threshold 80
+
+# Set specific metric thresholds
+npx @djankies/vitest-mcp \
+  --coverage-threshold-lines 90 \
+  --coverage-threshold-branches 80 \
+  --coverage-threshold-functions 85 \
+  --coverage-threshold-statements 90
 ```
 
-This works with:
-- Vitest workspace configurations (`vitest.workspace.ts`)
-- Projects defined in `vitest.config.ts` with the `projects` option
-- Yarn/npm/pnpm workspace monorepos
+Or in Claude Desktop config:
 
-## Configuration Options
+```json
+{
+  "mcpServers": {
+    "vitest": {
+      "command": "npx",
+      "args": [
+        "-y", 
+        "@djankies/vitest-mcp",
+        "--coverage-threshold-lines", "90",
+        "--coverage-threshold-branches", "80"
+      ]
+    }
+  }
+}
+```
 
-### Project Configuration (.vitest-mcp.json)
+### Configuration File
 
-Create a `.vitest-mcp.json` file in your home directory or project root:
+Optional `.vitest-mcp.json` in home or project directory:
 
 ```json
 {
@@ -266,99 +207,34 @@ Create a `.vitest-mcp.json` file in your home directory or project root:
   },
   "coverageDefaults": {
     "threshold": 80,
-    "format": "detailed",
-    "exclude": [
-      "**/*.stories.*",
-      "**/e2e/**"
-    ]
-  }
-}
-```
-
-**Security Options:**
-
-- `allowedPaths`: Restrict `set_project_root` to specific directories (string or array)
-
-### MCP Server Options
-
-```json
-{
-  "mcpServers": {
-    "vitest": {
-      "command": "npx",
-      "args": [
-        "-y", "@djankies/vitest-mcp",
-        "--format", "detailed",
-        "--timeout", "60000"
-      ]
+    "thresholds": {
+      "lines": 90,
+      "branches": 80,
+      "functions": 85,
+      "statements": 90
     }
   }
 }
 ```
 
-### Available CLI Options
+### Priority Order
 
-- `--format <summary|detailed>` - Default output format
-- `--timeout <ms>` - Test timeout (default: 30000)
-- `--verbose` - Debug information
+Configuration is merged in the following order (highest priority first):
+
+1. Command-line flags
+2. Environment variables
+3. Configuration file
+4. Built-in defaults
 
 ## Troubleshooting
 
-### Storybook Configuration Errors
+**"Project root has not been set"** - Call `set_project_root` first
 
-If you encounter errors like `TypeError: Cannot create property 'exclude' on boolean 'true'` when running coverage analysis on projects with Storybook, this is typically caused by configuration conflicts. See [STORYBOOK_ISSUES.md](docs/STORYBOOK_ISSUES.md) for detailed solutions.
+**"Vitest not found"** - Install: `npm install --save-dev vitest@latest`
 
-**Quick Fix**: Create a separate minimal Vitest config for coverage that doesn't load Storybook configuration.
+**"Coverage provider not found"** - Install: `npm install --save-dev @vitest/coverage-v8@latest`
 
-### Version Issues
-
-```bash
-# Check compatibility
-npx -y @djankies/vitest-mcp --version-check
-```
-
-### Common Issues
-
-**"Project root has not been set"**
-
-Always call `set_project_root` first:
-
-```javascript
-set_project_root({ path: "/path/to/project" })
-```
-
-**"Cannot set project root to the Vitest MCP package"**
-
-The tool prevents running on itself. Use it on other projects.
-
-**"Path is outside allowed directories"**
-
-Check your `.vitest-mcp.json` configuration for `allowedPaths` restrictions.
-
-**"Vitest not found"**
-
-```bash
-npm install --save-dev vitest@latest
-```
-
-**"Coverage provider not found"**
-
-```bash
-npm install --save-dev @vitest/coverage-v8@latest
-```
-
-**Hook not working**
-
-```bash
-# Test hook directly
-./.claude/vitest-hook.sh vitest run src/
-# Bypass hook
-npx vitest run src/ --bypass-hook
-```
-
-## For AI/LLM Users
-
-- **[CLAUDE.example.md](./CLAUDE.example.md)** - Example snippet to add to your project's CLAUDE.md
+**Hook issues** - Bypass with: `vitest --bypass-hook`
 
 ## License
 

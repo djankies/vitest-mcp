@@ -17,6 +17,32 @@ This is a Model Context Protocol (MCP) server that provides AI-optimized Vitest 
 - `npm test` - Run the project's own test suite using Vitest
 - `npm run prepare` - Build before publishing (runs automatically on install)
 
+### Development Mode (Self-Testing)
+
+When developing the MCP server itself, you can enable development mode to test it on its own repository:
+
+1. Set the environment variable in `.env.development`:
+
+   ```bash
+   VITEST_MCP_DEV_MODE=true
+   ```
+
+2. Build and run the server:
+
+   ```bash
+   npm run build
+   npm start
+   ```
+
+3. Use the tools on the repository itself:
+
+   ```javascript
+   set_project_root({ path: "/path/to/vitest-mcp" })  // Now allowed in dev mode
+   run_tests({ target: "./src/tools" })
+   ```
+
+This bypasses the self-protection check that normally prevents the MCP server from running on itself.
+
 ### Testing Commands
 
 - **IMPORTANT**: Always use the project's own MCP tools for testing, not raw vitest commands

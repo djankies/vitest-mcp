@@ -44,9 +44,9 @@ export interface FileCoverageDetails {
   };
 }
 
-// TestDuplication interface removed - not feasible with current Vitest coverage data
 
-// CoverageGap removed - no interpretations, just raw data
+
+
 
 export interface CoverageQualityScore {
   overall: number;
@@ -68,10 +68,13 @@ export interface CoverageAnalysisResult {
     statements: number;
   };
   file?: string;
-  uncovered: {
-    lines: number[];
-    functions: Array<{name: string; line: number}>;
-    branches: number[];
+  
+  uncovered?: {
+    [filePath: string]: {
+      lines: number[];
+      functions: Array<{name: string; line: number}>;
+      branches: number[];
+    };
   };
   totals: {
     lines: number;
@@ -82,14 +85,34 @@ export interface CoverageAnalysisResult {
   command: string;
   duration: number;
   error?: string;
+  
+  fileBreakdown?: Array<{
+    path: string;
+    coverage: {
+      lines: number;
+      functions: number;
+      branches: number;
+      statements: number;
+    };
+    totals: {
+      lines: number;
+      functions: number;
+      branches: number;
+      statements: number;
+    };
+    covered: {
+      lines: number;
+      functions: number;
+      branches: number;
+      statements: number;
+    };
+  }>;
+  thresholdViolations?: string[];
 }
 
 export interface AnalyzeCoverageArgs {
   target: string;
-  threshold?: number;
-  includeDetails?: boolean;
   format?: 'summary' | 'detailed';
-  thresholds?: CoverageThreshold;
   exclude?: string[];
 }
 
@@ -117,7 +140,7 @@ interface BranchMapping {
 }
 
 export interface RawCoverageData {
-  // Raw Vitest coverage JSON structure
+  
   files: Record<string, {
     path: string;
     statementMap: Record<string, StatementMapping>;
@@ -136,5 +159,5 @@ export interface RawCoverageData {
   };
 }
 
-// Keep for backward compatibility but now just alias
+
 export type ProcessedCoverageResult = CoverageAnalysisResult;
