@@ -1,12 +1,19 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { promises as fs } from 'fs';
+import type { Stats } from 'fs';
 import { join, resolve } from 'path';
+
+// Mock Dirent interface for testing
+interface MockDirent {
+  name: string;
+  isDirectory(): boolean;
+  isFile(): boolean;
+}
 import {
   fileExists,
   isDirectory,
   findTestFiles,
-  findProjectRoot,
-  type TestFile
+  findProjectRoot
 } from '../file-utils';
 
 vi.mock('fs', () => ({
@@ -45,7 +52,7 @@ describe('file-utils', () => {
     it('should return true for directories', async () => {
       vi.mocked(fs.stat).mockResolvedValue({
         isDirectory: () => true
-      } as any);
+      } as Stats);
       
       const result = await isDirectory('/path/to/dir');
       
@@ -56,7 +63,7 @@ describe('file-utils', () => {
     it('should return false for files', async () => {
       vi.mocked(fs.stat).mockResolvedValue({
         isDirectory: () => false
-      } as any);
+      } as Stats);
       
       const result = await isDirectory('/path/to/file');
       
@@ -80,21 +87,21 @@ describe('file-utils', () => {
         { name: 'src', isDirectory: () => true, isFile: () => false },
         { name: 'node_modules', isDirectory: () => true, isFile: () => false },
         { name: 'regular.ts', isDirectory: () => false, isFile: () => true }
-      ];
+      ] as MockDirent[];
 
       const mockSrcEntries = [
         { name: 'component.test.tsx', isDirectory: () => false, isFile: () => true },
         { name: '__tests__', isDirectory: () => true, isFile: () => false }
-      ];
+      ] as MockDirent[];
 
       const mockTestsEntries = [
         { name: 'unit.test.js', isDirectory: () => false, isFile: () => true }
-      ];
+      ] as MockDirent[];
 
       vi.mocked(fs.readdir)
-        .mockResolvedValueOnce(mockDirEntries as any)
-        .mockResolvedValueOnce(mockSrcEntries as any)
-        .mockResolvedValueOnce(mockTestsEntries as any);
+        .mockResolvedValueOnce(mockDirEntries)
+        .mockResolvedValueOnce(mockSrcEntries)
+        .mockResolvedValueOnce(mockTestsEntries);
 
       const result = await findTestFiles('/project');
 
@@ -110,20 +117,20 @@ describe('file-utils', () => {
         { name: 'unit.test.ts', isDirectory: () => false, isFile: () => true },
         { name: 'e2e', isDirectory: () => true, isFile: () => false },
         { name: 'integration', isDirectory: () => true, isFile: () => false }
-      ];
+      ] as MockDirent[];
 
       const mockE2EEntries = [
         { name: 'app.test.ts', isDirectory: () => false, isFile: () => true }
-      ];
+      ] as MockDirent[];
 
       const mockIntegrationEntries = [
         { name: 'api.test.ts', isDirectory: () => false, isFile: () => true }
-      ];
+      ] as MockDirent[];
 
       vi.mocked(fs.readdir)
-        .mockResolvedValueOnce(mockEntries as any)
-        .mockResolvedValueOnce(mockE2EEntries as any)
-        .mockResolvedValueOnce(mockIntegrationEntries as any);
+        .mockResolvedValueOnce(mockEntries)
+        .mockResolvedValueOnce(mockE2EEntries)
+        .mockResolvedValueOnce(mockIntegrationEntries);
 
       const result = await findTestFiles('/project');
 
@@ -139,9 +146,9 @@ describe('file-utils', () => {
         { name: 'build', isDirectory: () => true, isFile: () => false },
         { name: '.git', isDirectory: () => true, isFile: () => false },
         { name: 'test.spec.ts', isDirectory: () => false, isFile: () => true }
-      ];
+      ] as MockDirent[];
 
-      vi.mocked(fs.readdir).mockResolvedValueOnce(mockEntries as any);
+      vi.mocked(fs.readdir).mockResolvedValueOnce(mockEntries);
 
       const result = await findTestFiles('/project');
 
@@ -165,9 +172,9 @@ describe('file-utils', () => {
       process.cwd = vi.fn().mockReturnValue('/project/src/utils');
 
       vi.mocked(fs.access)
-        .mockRejectedValueOnce(new Error('Not found')) // /project/src/utils/package.json
-        .mockRejectedValueOnce(new Error('Not found')) // /project/src/package.json
-        .mockResolvedValueOnce(undefined); // /project/package.json
+        .mockRejectedValueOnce(new Error('Not found')) 
+        .mockRejectedValueOnce(new Error('Not found')) 
+        .mockResolvedValueOnce(undefined); 
 
       const result = await findProjectRoot();
 

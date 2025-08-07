@@ -1,6 +1,6 @@
 {
   "name": "@djankies/vitest-mcp",
-  "version": "0.1.0",
+  "version": "0.4.6",
   "description": "A Model Context Protocol server for Vitest test execution and management",
   "main": "dist/index.js",
   "type": "module",
@@ -8,12 +8,19 @@
     "vitest-mcp": "dist/index.js"
   },
   "scripts": {
-    "build": "tsc && chmod +x dist/index.js",
+    "build": "tsc && chmod +x dist/index.js && mkdir -p dist/resources && cp src/resources/*.md dist/resources/ 2>/dev/null || true",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
     "lint": "eslint src --ext .ts",
     "test": "vitest run",
-    "prepare": "npm run build"
+    "test:unit": "vitest run src/tools",
+    "test:integration": "vitest run src/__tests__/integration",
+    "test-coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "ci": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "publish:beta": "npm run ci && npm version prerelease --preid=beta && git push origin develop --tags && npm publish --tag beta",
+    "publish:release": "npm run ci && npm version patch && git push origin develop --tags && npm publish",
+    "prepare": "husky"
   },
   "keywords": [
     "mcp",
@@ -40,7 +47,11 @@
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "@vitest/coverage-v8": "^3.2.4",
+    "dotenv": "^17.2.1",
     "eslint": "^9.0.0",
+    "husky": "^9.1.7",
+    "jsdom": "^26.1.0",
+    "lint-staged": "^16.1.4",
     "typescript": "^5.0.0",
     "vitest": "^3.2.4"
   },

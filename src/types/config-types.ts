@@ -31,32 +31,16 @@ export interface VitestMCPConfig {
    */
   coverageDefaults?: {
     /**
-     * Default coverage threshold percentage
-     * @default 80
-     */
-    threshold?: number;
-    
-    /**
      * Default output format for analyze_coverage
      * @default 'summary'
      */
     format?: 'summary' | 'detailed';
     
     /**
-     * Include detailed line-by-line analysis by default
-     * @default false
+     * Patterns to exclude from coverage analysis
+     * Default includes Storybook files, e2e tests, and mock directories
      */
-    includeDetails?: boolean;
-    
-    /**
-     * Custom thresholds for different metrics
-     */
-    thresholds?: {
-      lines?: number;
-      functions?: number;
-      branches?: number;
-      statements?: number;
-    };
+    exclude?: string[];
   };
 
   /**
@@ -132,6 +116,14 @@ export interface VitestMCPConfig {
      * @default ['vitest']
      */
     allowedRunners?: string[];
+    
+    /**
+     * Restrict project root to specific directories
+     * Can be a single path or array of paths
+     * When set, set_project_root will only accept paths within these directories
+     * @default undefined (no restriction)
+     */
+    allowedPaths?: string | string[];
   };
 }
 

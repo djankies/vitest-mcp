@@ -44,9 +44,9 @@ export interface FileCoverageDetails {
   };
 }
 
-// TestDuplication interface removed - not feasible with current Vitest coverage data
 
-// CoverageGap removed - no interpretations, just raw data
+
+
 
 export interface CoverageQualityScore {
   overall: number;
@@ -68,41 +68,88 @@ export interface CoverageAnalysisResult {
     statements: number;
   };
   file?: string;
-  uncovered: {
-    lines: number[];
-    functions: Array<{name: string; line: number}>;
-    branches: number[];
+  
+  uncovered?: {
+    [filePath: string]: {
+      lines: number[];
+      functions: Array<{name: string; line: number}>;
+      branches: number[];
+    };
   };
   totals: {
     lines: number;
     functions: number;
     branches: number;
   };
-  meetsThreshold: boolean;
+  meetsThreshold?: boolean;  // Optional - only present if thresholds are configured
   command: string;
   duration: number;
   error?: string;
+  
+  fileBreakdown?: Array<{
+    path: string;
+    coverage: {
+      lines: number;
+      functions: number;
+      branches: number;
+      statements: number;
+    };
+    totals: {
+      lines: number;
+      functions: number;
+      branches: number;
+      statements: number;
+    };
+    covered: {
+      lines: number;
+      functions: number;
+      branches: number;
+      statements: number;
+    };
+  }>;
+  thresholdViolations?: string[];  // Optional - only present if thresholds are violated
 }
 
 export interface AnalyzeCoverageArgs {
   target: string;
-  threshold?: number;
-  includeDetails?: boolean;
   format?: 'summary' | 'detailed';
-  thresholds?: CoverageThreshold;
+  exclude?: string[];
+}
+
+interface StatementMapping {
+  start?: {
+    line?: number;
+  };
+}
+
+interface FunctionMapping {
+  name?: string;
+  decl?: {
+    start?: {
+      line?: number;
+    };
+  };
+}
+
+interface BranchMapping {
+  loc?: {
+    start?: {
+      line?: number;
+    };
+  };
 }
 
 export interface RawCoverageData {
-  // Raw Vitest coverage JSON structure
+  
   files: Record<string, {
     path: string;
-    statementMap: Record<string, any>;
-    fnMap: Record<string, any>;
-    branchMap: Record<string, any>;
+    statementMap: Record<string, StatementMapping>;
+    fnMap: Record<string, FunctionMapping>;
+    branchMap: Record<string, BranchMapping>;
     s: Record<string, number>;
     f: Record<string, number>;
     b: Record<string, number[]>;
-    inputSourceMap?: any;
+    inputSourceMap?: unknown;
   }>;
   summary: {
     lines: { total: number; covered: number; skipped: number; pct: number };
@@ -112,5 +159,5 @@ export interface RawCoverageData {
   };
 }
 
-// Keep for backward compatibility but now just alias
+
 export type ProcessedCoverageResult = CoverageAnalysisResult;

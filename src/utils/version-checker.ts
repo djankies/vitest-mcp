@@ -120,14 +120,14 @@ async function getVersionFromCli(cwd: string): Promise<string | null> {
     });
 
     let stdout = '';
-    let stderr = '';
+    // stderr is captured but not used in version detection
 
     child.stdout?.on('data', (data) => {
       stdout += data.toString();
     });
 
-    child.stderr?.on('data', (data) => {
-      stderr += data.toString();
+    child.stderr?.on('data', (_data) => {
+      // stderr captured but not used for version detection
     });
 
     const timeout = setTimeout(() => {
@@ -147,7 +147,7 @@ async function getVersionFromCli(cwd: string): Promise<string | null> {
       }
     });
 
-    child.on('error', () => {
+    child.on('error', (_error) => {
       clearTimeout(timeout);
       resolve(null);
     });

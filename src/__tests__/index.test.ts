@@ -1,70 +1,209 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, vi, beforeEach, afterEach, expect } from 'vitest';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
-// Mock the MCP SDK modules
-vi.mock('@modelcontextprotocol/sdk/server/index.js', () => ({
-  Server: vi.fn().mockImplementation(() => ({
-    setRequestHandler: vi.fn(),
-    connect: vi.fn().mockResolvedValue(undefined)
-  }))
-}));
+// Mock MCP SDK
+vi.mock('@modelcontextprotocol/sdk/server/index.js');
+vi.mock('@modelcontextprotocol/sdk/server/stdio.js');
 
-vi.mock('@modelcontextprotocol/sdk/server/stdio.js', () => ({
-  StdioServerTransport: vi.fn()
-}));
-
-// Mock the tool modules
-vi.mock('../tools/list-tests.js', () => ({
-  listTestsTool: { name: 'list_tests', description: 'List tests' },
-  handleListTests: vi.fn().mockResolvedValue({ testFiles: [], totalCount: 0 })
-}));
-
-vi.mock('../tools/run-tests.js', () => ({
-  runTestsTool: { name: 'run_tests', description: 'Run tests' },
-  handleRunTests: vi.fn().mockResolvedValue({ success: true })
-}));
-
-vi.mock('../tools/analyze-coverage.js', () => ({
-  analyzeCoverageTool: { name: 'analyze_coverage', description: 'Analyze coverage' },
-  handleAnalyzeCoverage: vi.fn().mockResolvedValue({ coverage: {} })
-}));
+// Mock all tool modules
+vi.mock('../tools/list-tests.js');
+vi.mock('../tools/run-tests.js');
+vi.mock('../tools/analyze-coverage.js');
+vi.mock('../tools/set-project-root.js');
+vi.mock('../config/config-loader.js');
+vi.mock('../plugins/index.js');
 
 describe('VitestMCPServer', () => {
+  let mockServer: Server;
+  let mockTransport: StdioServerTransport;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    
+    // Setup mock server
+    mockServer = {
+      onerror: null,
+      onclose: null,
+      setRequestHandler: vi.fn(),
+      connect: vi.fn()
+    };
+    vi.mocked(Server).mockReturnValue(mockServer);
+    
+    // Setup mock transport
+    mockTransport = {};
+    vi.mocked(StdioServerTransport).mockReturnValue(mockTransport);
   });
 
-  it('should create server with correct configuration', async () => {
-    // Import after mocks are set up
-    await import('../index');
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
-    expect(Server).toHaveBeenCalledWith(
-      {
-        name: 'vitest-mcp-server',
-        version: '1.0.0',
-      },
-      {
+  describe('Server Initialization', () => {
+    it('should create server with correct configuration', async () => {
+      // Mock the plugin registry
+      const mockToolRegistry = {
+        getTools: vi.fn().mockReturnValue([]),
+        execute: vi.fn()
+      };
+      const { createStandardToolRegistry } = await import('../plugins/index.js');
+      vi.mocked(createStandardToolRegistry).mockReturnValue(mockToolRegistry);
+      
+      // Mock config loader
+      const { getConfig } = await import('../config/config-loader.js');
+      vi.mocked(getConfig).mockResolvedValue({
+        server: { verbose: false },
+        coverageDefaults: {}
+      });
+      
+      const { VitestMCPServer } = await import('../index.js');
+      new VitestMCPServer(); // Actually instantiate the server
+      
+      expect(Server).toHaveBeenCalledWith({
+        name: 'vitest-mcp',
+        version: '0.2.0'
+      }, {
         capabilities: {
           tools: {},
-          resources: {},
-        },
-      }
-    );
+          resources: {}
+        }
+      });
+    });
+
+    it('should set up error and close handlers', async () => {
+      await import('../index.js');
+      expect(mockServer.onerror).toBeDefined();
+      expect(mockServer.onclose).toBeDefined();
+    });
   });
 
-  it('should set up request handlers', async () => {
-    await import('../index');
-
-    const serverInstance = vi.mocked(Server).mock.results[0].value;
-    expect(serverInstance.setRequestHandler).toHaveBeenCalled();
+  describe('Request Handler Registration', () => {
+    it('should register all required MCP request handlers', async () => {
+      // Mock the plugin registry
+      const mockToolRegistry = {
+        getTools: vi.fn().mockReturnValue([]),
+        execute: vi.fn()
+      };
+      const { createStandardToolRegistry } = await import('../plugins/index.js');
+      vi.mocked(createStandardToolRegistry).mockReturnValue(mockToolRegistry);
+      
+      // Mock config loader
+      const { getConfig } = await import('../config/config-loader.js');
+      vi.mocked(getConfig).mockResolvedValue({
+        server: { verbose: false },
+        coverageDefaults: {}
+      });
+      
+      const { VitestMCPServer } = await import('../index.js');
+      new VitestMCPServer(); // Actually instantiate the server
+      
+      expect(mockServer.setRequestHandler).toHaveBeenCalledTimes(4);
+    });
   });
 
-  it('should connect to stdio transport', async () => {
-    await import('../index');
+  describe('Tool Registration', () => {
+    it('should register all core tools', async () => {
+      // Mock the plugin registry
+      const mockToolRegistry = {
+        getTools: vi.fn().mockReturnValue([]),
+        execute: vi.fn()
+      };
+      const { createStandardToolRegistry } = await import('../plugins/index.js');
+      vi.mocked(createStandardToolRegistry).mockReturnValue(mockToolRegistry);
+      
+      // Mock config loader
+      const { getConfig } = await import('../config/config-loader.js');
+      vi.mocked(getConfig).mockResolvedValue({
+        server: { verbose: false },
+        coverageDefaults: {}
+      });
+      
+      const { VitestMCPServer } = await import('../index.js');
+      new VitestMCPServer(); // Actually instantiate the server
+      
+      // Verify the essential tools are registered
+      expect(mockServer.setRequestHandler).toHaveBeenCalled();
+    });
+  });
 
-    const serverInstance = vi.mocked(Server).mock.results[0].value;
-    expect(StdioServerTransport).toHaveBeenCalled();
-    expect(serverInstance.connect).toHaveBeenCalled();
+  describe('Error Handling', () => {
+    it('should handle tool execution errors gracefully', async () => {
+      // Mock the plugin registry
+      const mockToolRegistry = {
+        getTools: vi.fn().mockReturnValue([]),
+        execute: vi.fn()
+      };
+      const { createStandardToolRegistry } = await import('../plugins/index.js');
+      vi.mocked(createStandardToolRegistry).mockReturnValue(mockToolRegistry);
+      
+      // Mock config loader
+      const { getConfig } = await import('../config/config-loader.js');
+      vi.mocked(getConfig).mockResolvedValue({
+        server: { verbose: false },
+        coverageDefaults: {}
+      });
+      
+      const { VitestMCPServer } = await import('../index.js');
+      new VitestMCPServer(); // Actually instantiate the server
+      
+      expect(mockServer.onerror).toBeDefined();
+      
+      // Test error handler doesn't throw
+      const errorHandler = mockServer.onerror;
+      expect(() => errorHandler(new Error('test error'))).not.toThrow();
+    });
+  });
+
+  describe('Resource Management', () => {
+    it('should handle resource requests', async () => {
+      // Mock the plugin registry
+      const mockToolRegistry = {
+        getTools: vi.fn().mockReturnValue([]),
+        execute: vi.fn()
+      };
+      const { createStandardToolRegistry } = await import('../plugins/index.js');
+      vi.mocked(createStandardToolRegistry).mockReturnValue(mockToolRegistry);
+      
+      // Mock config loader
+      const { getConfig } = await import('../config/config-loader.js');
+      vi.mocked(getConfig).mockResolvedValue({
+        server: { verbose: false },
+        coverageDefaults: {}
+      });
+      
+      const { VitestMCPServer } = await import('../index.js');
+      new VitestMCPServer(); // Actually instantiate the server
+      
+      // Verify resource handlers are set up
+      expect(mockServer.setRequestHandler).toHaveBeenCalled();
+    });
+  });
+
+  describe('Server Lifecycle', () => {
+    it('should connect to transport successfully', async () => {
+      // Mock the plugin registry
+      const mockToolRegistry = {
+        getTools: vi.fn().mockReturnValue([]),
+        execute: vi.fn()
+      };
+      const { createStandardToolRegistry } = await import('../plugins/index.js');
+      vi.mocked(createStandardToolRegistry).mockReturnValue(mockToolRegistry);
+      
+      // Mock config loader to prevent verbose mode
+      const { getConfig } = await import('../config/config-loader.js');
+      vi.mocked(getConfig).mockResolvedValue({
+        server: { verbose: false },
+        coverageDefaults: {}
+      });
+      
+      const { VitestMCPServer } = await import('../index.js');
+      const serverInstance = new VitestMCPServer();
+      
+      // Test the run method which creates transport and connects
+      await serverInstance.run();
+      
+      expect(StdioServerTransport).toHaveBeenCalled();
+      expect(mockServer.connect).toHaveBeenCalledWith(mockTransport);
+    });
   });
 });

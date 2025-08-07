@@ -3,7 +3,7 @@ import { VitestMCPConfig } from '../types/config-types.js';
 /**
  * Parse command-line arguments into configuration overrides
  */
-export function parseCliArgs(args: string[]): Partial<VitestMCPConfig> {
+export async function parseCliArgs(args: string[]): Promise<Partial<VitestMCPConfig>> {
   const config: Partial<VitestMCPConfig> = {};
   
   for (let i = 0; i < args.length; i++) {
@@ -30,14 +30,6 @@ export function parseCliArgs(args: string[]): Partial<VitestMCPConfig> {
         break;
         
       // Coverage defaults
-      case '--threshold':
-        if (nextArg && !isNaN(parseInt(nextArg))) {
-          config.coverageDefaults = config.coverageDefaults || {};
-          config.coverageDefaults.threshold = parseInt(nextArg);
-          i++;
-        }
-        break;
-        
       case '--coverage-format':
         if (nextArg && ['summary', 'detailed'].includes(nextArg)) {
           config.coverageDefaults = config.coverageDefaults || {};
@@ -46,10 +38,6 @@ export function parseCliArgs(args: string[]): Partial<VitestMCPConfig> {
         }
         break;
         
-      case '--include-details':
-        config.coverageDefaults = config.coverageDefaults || {};
-        config.coverageDefaults.includeDetails = true;
-        break;
         
       // Server settings
       case '--verbose':
@@ -102,11 +90,15 @@ export function parseCliArgs(args: string[]): Partial<VitestMCPConfig> {
       case '-h':
         printHelp();
         process.exit(0);
+        break;
         
       // Version
-      case '--version':
-        console.log('@djankies/vitest-mcp version 0.1.0');
+      case '--version': {
+        // Read version from package.json dynamically
+        const packageJson = await import('../../package.json', { with: { type: 'json' } });
+        console.log(`@djankies/vitest-mcp version ${packageJson.default.version}`);
         process.exit(0);
+      }
     }
   }
   
@@ -142,9 +134,7 @@ Options:
     --timeout <ms>            Test execution timeout in milliseconds
 
   Coverage Defaults:
-    --threshold <percent>      Default coverage threshold (0-100)
-    --coverage-format <fmt>    Default coverage format (summary|detailed)
-    --include-details         Include detailed line-by-line analysis
+    --coverage-format <fmt>            Default coverage format (summary|detailed)
 
   Server Settings:
     -v, --verbose             Enable verbose logging
@@ -169,7 +159,7 @@ Examples:
   # Override timeout and format
   vitest-mcp --timeout 60000 --format detailed
 
-  # Set coverage threshold and format
-  vitest-mcp --threshold 90 --coverage-format detailed
+  # Set coverage format
+  vitest-mcp --coverage-format detailed
 `);
 }

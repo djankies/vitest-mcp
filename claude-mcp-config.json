@@ -2,7 +2,7 @@
   "mcpServers": {
     "vitest": {
       "command": "node",
-      "args": ["/Users/daniel/Projects/vitest-mcp/dist/index.js"],
+      "args": ["~/Projects/vitest-mcp/dist/index.js"],
       "env": {}
     }
   }
