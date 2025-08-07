@@ -273,6 +273,10 @@ class TestRunner {
       vitestArgs.push("--project", args.project);
     }
 
+    // Force headless mode for browser tests to prevent opening browser windows
+    // This ensures tests run in CI-like environment
+    vitestArgs.push("--browser.headless=true");
+
     return vitestArgs;
   }
 
@@ -387,7 +391,11 @@ export default mergeConfig(
   baseConfig,
   defineConfig({
     test: {
-      setupFiles: ['${setupFilePath!.replace(/\\/g, "\\\\")}']
+      setupFiles: ['${setupFilePath!.replace(/\\/g, "\\\\")}'],
+      browser: {
+        ...baseConfig?.test?.browser,
+        headless: true
+      }
     }
   })
 );

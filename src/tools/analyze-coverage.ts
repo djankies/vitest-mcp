@@ -174,10 +174,10 @@ class CoverageAnalyzer {
     const { targetPath, config } = await this.validateInput(args);
     await this.validateEnvironment(targetPath);
 
+    // Don't modify exclude here - let getExcludePatterns handle the defaults
     const finalArgs = {
       ...args,
       format: args.format ?? config.coverageDefaults.format,
-      exclude: args.exclude ?? config.coverageDefaults.exclude ?? [],
     };
 
     return await this.executeCoverageAnalysis(finalArgs, config, targetPath);
@@ -382,21 +382,17 @@ class CoverageAnalyzer {
     command.push("--coverage.clean=true");
     command.push("--coverage.cleanOnRerun=true");
 
-    // Handle exclusions
-    const excludePatterns = this.getExcludePatterns(args);
-    for (const pattern of excludePatterns) {
-      command.push("--exclude", pattern);
-    }
-
-    // Add target files
+    // Add target files first (must come before --coverage flag)
     await this.addTargetToCommand(command, args, targetPath);
 
     // Enable coverage
     command.push("--coverage");
 
-    // Add coverage exclusions
+    // Add coverage exclusions (not test exclusions)
+    // Note: --exclude is for test files, --coverage.exclude is for coverage reporting
+    const excludePatterns = this.getExcludePatterns(args);
     for (const pattern of excludePatterns) {
-      command.push("--coverage.exclude", pattern);
+      command.push(`--coverage.exclude=${pattern}`);
     }
 
     command.push("--passWithNoTests");
@@ -409,10 +405,12 @@ class CoverageAnalyzer {
    * Get exclude patterns for coverage
    */
   private getExcludePatterns(args: AnalyzeCoverageArgs): string[] {
+    // Only use custom patterns if explicitly provided and non-empty
     if (args.exclude && args.exclude.length > 0) {
       return args.exclude;
     }
 
+    // Default patterns for common non-production files
     return [
       "**/storybook/**",
       "**/.storybook/**",
