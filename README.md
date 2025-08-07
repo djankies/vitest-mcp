@@ -11,7 +11,7 @@
 ## Table of Contents
 
 <!-- markdownlint-disable MD051-->
-- [😢 The Problem with LLMs and Vitest](#😢-the-problem-with-llms-and-testing-😢)
+- [😢 The Problem with LLMs and Testing](#😢-the-problem-with-llms-and-testing-😢)
 - [✨ Key Features](#✨-key-features-✨)
 - [🚀 Quick Start](#🚀-quick-start-🚀)
 - [📋 Requirements](#📋-requirements)
@@ -312,7 +312,7 @@ npm install --save-dev vitest@latest @vitest/coverage-v8@latest
 
 ### `list_tests`
 
-List test files in your project. Helps keep LLMs from slipping back to using command line tools while working with tests. 
+List test files in your project. Helps keep LLMs from slipping back to using command line tools while working with tests.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -456,7 +456,7 @@ export default defineConfig({
   }
 });
 ```
-> 
+>
 > 💡 **Note**: Coverage analysis is always available regardless of threshold settings. Threshold reporting just helps keep your LLM on target.
 
 ### Vitest-MCP Configuration File
@@ -527,7 +527,7 @@ VITEST_MCP_DEV_MODE=true
 
 **Hook issues** - Bypass with: `VITEST_HOOK_BYPASS=1 npm test`
 
-**Found a bug?** Submit a bug report, please, and thank you. 
+**Found a bug?** Submit a bug report, please, and thank you.
 
 ## 📜 License
 
