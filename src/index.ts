@@ -227,8 +227,16 @@ async function gracefulShutdown(): Promise<void> {
   }
 }
 
-// Only run main() if this file is being executed directly, not imported
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Run main() when this module is executed
+// Check if this module is the main module being executed
+const isMainModule = 
+  import.meta.url === `file://${process.argv[1]}` ||
+  process.argv[1]?.endsWith('/vitest-mcp') ||
+  process.argv[1]?.endsWith('\\vitest-mcp') ||
+  process.argv[1]?.endsWith('/dist/index.js') ||
+  process.argv[1]?.endsWith('\\dist\\index.js');
+
+if (isMainModule) {
   main().catch((error) => {
     console.error("[MCP] Unhandled error:", error);
     process.exit(1);
