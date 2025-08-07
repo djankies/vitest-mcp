@@ -1,11 +1,13 @@
 # 🧪 Vitest MCP Server
 
+[![CI](https://github.com/djankies/vitest-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/djankies/vitest-mcp/actions/workflows/ci.yml)
+
 **AI-optimized Vitest runner** with intelligent coverage analysis — like 🎳 bumpers for your LLMs.
 
 ## Table of Contents
 
 <!-- markdownlint-disable MD051-->
-- [😢 The Problem with LLMs and Vitest](#😢-the-problem-with-llms-and-vitest-😢)
+- [😢 The Problem with LLMs and Vitest](#😢-the-problem-with-llms-and-testing-😢)
 - [✨ Key Features](#✨-key-features-✨)
 - [🚀 Quick Start](#🚀-quick-start-🚀)
 - [📋 Requirements](#📋-requirements)
