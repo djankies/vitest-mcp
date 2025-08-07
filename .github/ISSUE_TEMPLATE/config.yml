@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Discussions
+    url: https://github.com/djankies/vitest-mcp/discussions
+    about: Ask questions and discuss ideas with the community
+  - name: 📚 Documentation
+    url: https://github.com/djankies/vitest-mcp#readme
+    about: Check the README for setup and usage information
+  - name: 🔗 Claude Desktop Docs
+    url: https://docs.anthropic.com/en/docs/claude-desktop
+    about: Learn more about using MCP servers with Claude Desktop

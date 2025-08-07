@@ -1,0 +1,124 @@
+name: ✨ Feature Request
+description: Suggest a new feature or enhancement for the Vitest MCP Server
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! 
+        Your ideas help make the Vitest MCP Server better for everyone.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: Describe the problem or limitation you're facing
+      placeholder: |
+        Currently, when running tests with the MCP server, I cannot specify custom reporters...
+        This makes it difficult to integrate with our CI/CD pipeline because...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you'd like to see
+      placeholder: |
+        Add a `reporter` parameter to the run_tests tool that accepts standard Vitest reporter options...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative Solutions
+      description: Have you considered any alternative solutions or workarounds?
+      placeholder: |
+        As a workaround, I'm currently using the bypass hook to run Vitest directly, but this loses the benefits of structured output...
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: How important is this feature to you?
+      options:
+        - Critical - Blocking my work
+        - High - Would significantly improve my workflow
+        - Medium - Nice to have
+        - Low - Minor improvement
+    validations:
+      required: true
+
+  - type: dropdown
+    id: use-case
+    attributes:
+      label: Primary Use Case
+      description: What's your main use case for this feature?
+      options:
+        - AI-assisted development
+        - CI/CD integration
+        - Test debugging
+        - Coverage analysis
+        - Performance optimization
+        - Other (please describe)
+    validations:
+      required: true
+
+  - type: textarea
+    id: example
+    attributes:
+      label: Usage Example
+      description: Show how you would use this feature if it existed
+      placeholder: |
+        ```javascript
+        run_tests({
+          target: "./src",
+          reporter: "json",
+          customOptions: {
+            threads: false
+          }
+        })
+        ```
+      render: javascript
+
+  - type: textarea
+    id: breaking
+    attributes:
+      label: Breaking Changes
+      description: Would this feature require any breaking changes to existing functionality?
+      placeholder: |
+        No, this would be backwards compatible by making the new parameter optional...
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or examples about the feature request
+      placeholder: |
+        This feature is similar to what's available in the Jest MCP server...
+        Here's a link to their implementation: ...
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Are you willing to help implement this feature?
+      options:
+        - label: I am willing to submit a pull request for this feature
+          required: false
+        - label: I am willing to test beta versions of this feature
+          required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched for existing feature requests
+          required: true
+        - label: This feature would be useful to other users, not just me
+          required: true
+        - label: I have provided a clear use case for this feature
+          required: true

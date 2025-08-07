@@ -1,0 +1,155 @@
+name: 🐛 Bug Report
+description: Report a bug or unexpected behavior in the Vitest MCP Server
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this bug! 
+        Please fill out the form below to help us understand and fix the issue.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is
+      placeholder: |
+        When I run the analyze_coverage tool with a specific target, the server crashes...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior
+      placeholder: |
+        1. Set project root to '...'
+        2. Run test with target '...'
+        3. See error
+      value: |
+        1. 
+        2. 
+        3. 
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What you expected to happen
+      placeholder: The coverage analysis should complete successfully and return results
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened
+      placeholder: The server crashes with error message...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Vitest MCP Server Version
+      description: What version of @djankies/vitest-mcp are you using?
+      placeholder: e.g., 0.4.4-beta.0
+    validations:
+      required: true
+
+  - type: input
+    id: vitest-version
+    attributes:
+      label: Vitest Version
+      description: What version of Vitest is installed in your project?
+      placeholder: e.g., 3.2.4
+    validations:
+      required: true
+
+  - type: dropdown
+    id: node-version
+    attributes:
+      label: Node.js Version
+      description: What version of Node.js are you using?
+      options:
+        - Node 18.x
+        - Node 20.x
+        - Node 21.x
+        - Node 22.x
+        - Other (please specify in additional context)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - macOS
+        - Windows
+        - Linux
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: client
+    attributes:
+      label: MCP Client
+      description: Which MCP client are you using?
+      options:
+        - Claude Desktop
+        - Claude Code
+        - Other MCP Client
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error Logs
+      description: Please paste any relevant error logs or stack traces
+      placeholder: |
+        ```
+        Error: Cannot find module...
+        ```
+      render: shell
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: If relevant, please share your .vitest-mcp.json configuration (remove any sensitive data)
+      placeholder: |
+        ```json
+        {
+          "allowedPaths": ["./src"],
+          "timeout": 30000
+        }
+        ```
+      render: json
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem here
+      placeholder: This started happening after upgrading from version X to Y...
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched for existing issues that describe this problem
+          required: true
+        - label: I am using the latest version of the Vitest MCP Server
+          required: false
+        - label: I have provided all the requested information above
+          required: true
