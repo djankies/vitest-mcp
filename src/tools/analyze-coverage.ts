@@ -193,8 +193,10 @@ class CoverageAnalyzer {
     // Only throw if we have neither success nor coverage data
     // When thresholds fail, success is false but we still have coverage data
     if (!coverageResult.coverageData) {
+      // Filter out known warnings from stderr before using it in error message
+      const cleanedStderr = this.filterWarningsFromStderr(coverageResult.stderr);
       throw new Error(
-        `Coverage analysis failed: ${coverageResult.stderr || "No coverage data available"}`
+        `Coverage analysis failed: ${cleanedStderr || "No coverage data available"}`
       );
     }
 
@@ -266,12 +268,12 @@ class CoverageAnalyzer {
 
     let coverageData: RawCoverageData | undefined;
 
-    if (result.success || result.stdout) {
-      try {
-        coverageData = await this.parseCoverageData(result.stdout, args.target);
-      } catch (parseError) {
-        this.handleParseError(parseError, result);
-      }
+    // Try to parse coverage data regardless of exit code
+    // Coverage might still be generated even if tests fail
+    try {
+      coverageData = await this.parseCoverageData(result.stdout, args.target);
+    } catch (parseError) {
+      this.handleParseError(parseError, result);
     }
 
     return {
@@ -284,35 +286,55 @@ class CoverageAnalyzer {
    * Parse coverage data from stdout or fallback to file
    */
   private async parseCoverageData(stdout: string, target: string): Promise<RawCoverageData | undefined> {
-    if (!stdout.trim()) return undefined;
-
-    let jsonOutput;
-    const trimmedStdout = stdout.trim();
-
-    // Extract JSON from stdout
-    const firstBrace = trimmedStdout.indexOf("{");
-    if (firstBrace !== -1) {
-      let braceCount = 0;
-      let jsonEnd = firstBrace;
-
-      for (let i = firstBrace; i < trimmedStdout.length; i++) {
-        if (trimmedStdout[i] === "{") braceCount++;
-        if (trimmedStdout[i] === "}") braceCount--;
-
-        if (braceCount === 0) {
-          jsonEnd = i + 1;
-          break;
-        }
-      }
-
-      const jsonString = trimmedStdout.substring(firstBrace, jsonEnd);
-      jsonOutput = JSON.parse(jsonString);
-    } else {
-      jsonOutput = JSON.parse(trimmedStdout);
+    if (!stdout.trim()) {
+      // If no stdout, try loading from file directly
+      return await this.loadCoverageFromFile(target);
     }
 
-    if (jsonOutput.coverageMap && Object.keys(jsonOutput.coverageMap).length > 0) {
-      return transformCoverageData(jsonOutput.coverageMap, target);
+    try {
+      let jsonOutput;
+      const trimmedStdout = stdout.trim();
+
+      // Extract JSON from stdout
+      const firstBrace = trimmedStdout.indexOf("{");
+      if (firstBrace !== -1) {
+        let braceCount = 0;
+        let jsonEnd = firstBrace;
+
+        for (let i = firstBrace; i < trimmedStdout.length; i++) {
+          if (trimmedStdout[i] === "{") braceCount++;
+          if (trimmedStdout[i] === "}") braceCount--;
+
+          if (braceCount === 0) {
+            jsonEnd = i + 1;
+            break;
+          }
+        }
+
+        const jsonString = trimmedStdout.substring(firstBrace, jsonEnd);
+        jsonOutput = JSON.parse(jsonString);
+      } else {
+        jsonOutput = JSON.parse(trimmedStdout);
+      }
+
+      // Check if we have json-summary format (has 'total' field)
+      if (jsonOutput.total) {
+        // json-summary format - we still need to load the detailed coverage from file
+        // But we can use the summary for quick validation
+        if (process.env.VITEST_MCP_DEBUG) {
+          console.error("Found json-summary in stdout, loading detailed coverage from file");
+        }
+        return await this.loadCoverageFromFile(target);
+      }
+
+      // Check for coverageMap (old format)
+      if (jsonOutput.coverageMap && Object.keys(jsonOutput.coverageMap).length > 0) {
+        return transformCoverageData(jsonOutput.coverageMap, target);
+      }
+    } catch (parseError) {
+      if (process.env.VITEST_MCP_DEBUG) {
+        console.error("Failed to parse stdout as JSON:", parseError);
+      }
     }
 
     // Fallback to coverage file
@@ -396,6 +418,10 @@ class CoverageAnalyzer {
       command.push(`--coverage.exclude=${pattern}`);
     }
 
+    // Use JSON reporter for coverage output
+    // This creates coverage/coverage-final.json file
+    command.push("--coverage.reporter=json");
+    
     command.push("--passWithNoTests");
     command.push("--reporter=json");
 
@@ -452,15 +478,46 @@ class CoverageAnalyzer {
   }
 
   /**
+   * Filter out known warnings from stderr
+   */
+  private filterWarningsFromStderr(stderr: string): string {
+    if (!stderr) return "";
+    
+    // Split into lines and filter out known warnings
+    const lines = stderr.split('\n');
+    const filteredLines = lines.filter(line => {
+      const trimmedLine = line.trim();
+      
+      // Filter out Vite CJS deprecation warning
+      if (trimmedLine.includes('The CJS build of Vite\'s Node API is deprecated')) {
+        return false;
+      }
+      if (trimmedLine.includes('https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated')) {
+        return false;
+      }
+      
+      // Filter out other known non-error warnings
+      if (trimmedLine.includes('DEPRECATED')) {
+        return false;
+      }
+      
+      // Keep actual errors
+      return trimmedLine.length > 0;
+    });
+    
+    return filteredLines.join('\n').trim();
+  }
+
+  /**
    * Find corresponding test file for a source file
    */
   private async findTestFile(targetPath: string): Promise<string | null> {
-    const baseName = targetPath.replace(/\.(ts|js|tsx|jsx)$/, "");
-    const fileExtension = targetPath.match(/\.(ts|js|tsx|jsx)$/)?.[1] || "ts";
+    const baseName = targetPath.replace(/\.(ts|js|tsx|jsx|mjs|cjs)$/, "");
+    const fileExtension = targetPath.match(/\.(ts|js|tsx|jsx|mjs|cjs)$/)?.[1] || "ts";
     const parentDir = targetPath.substring(0, targetPath.lastIndexOf("/"));
     const fileName = targetPath
       .substring(targetPath.lastIndexOf("/") + 1)
-      .replace(/\.(ts|js|tsx|jsx)$/, "");
+      .replace(/\.(ts|js|tsx|jsx|mjs|cjs)$/, "");
 
     const possibleTestFiles = [
       `${baseName}.test.${fileExtension}`,
@@ -719,6 +776,9 @@ async function executeCommand(
 
         FORCE_COLOR: "0",
         NO_COLOR: "1",
+        
+        // Suppress Vite CJS deprecation warning
+        VITE_CJS_IGNORE_WARNING: "true",
       },
     });
 

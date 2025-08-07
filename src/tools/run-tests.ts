@@ -606,7 +606,9 @@ async function executeVitest(
       env: {
         ...process.env,
         NODE_ENV: 'test',
-        VITEST_MCP_OPTIMIZED: '1'
+        VITEST_MCP_OPTIMIZED: '1',
+        // Suppress Vite CJS deprecation warning
+        VITE_CJS_IGNORE_WARNING: 'true'
       }
     });
 
