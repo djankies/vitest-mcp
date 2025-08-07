@@ -366,8 +366,8 @@ run_tests({ target: "./src" })
 Automatically redirect Vitest commands to MCP tools:
 
 ```bash
-# Download hook
-curl -o .claude/vitest-hook.sh https://raw.githubusercontent.com/djankies/vitest-mcp/main/hooks/vitest-hook.sh
+# Run from project root
+curl -o .claude/vitest-hook.sh https://raw.githubusercontent.com/djankies/vitest-mcp/refs/heads/main/.claude/vitest-hook.sh
 chmod +x .claude/vitest-hook.sh
 ```
 
