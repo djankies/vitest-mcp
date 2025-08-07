@@ -2,6 +2,10 @@
 
 [![CI](https://github.com/djankies/vitest-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/djankies/vitest-mcp/actions/workflows/ci.yml)
 
+<a href="https://glama.ai/mcp/servers/@djankies/vitest-mcp">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@djankies/vitest-mcp/badge" alt="Vitest Server MCP server" />
+</a>
+
 **AI-optimized Vitest runner** with intelligent coverage analysis — like 🎳 bumpers for your LLMs.
 
 ## Table of Contents
