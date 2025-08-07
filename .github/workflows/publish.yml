@@ -66,6 +66,12 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
           
+      - name: Update npm to latest version
+        run: npm install -g npm@latest
+        
+      - name: Verify npm version
+        run: npm --version
+          
       - name: Configure Git
         run: |
           git config --local user.email "action@github.com"
@@ -244,7 +250,7 @@ jobs:
           ### 📦 Installation
           
           ```bash
-          npx -y @djankies/vitest-mcp@${{ steps.version.outputs.version }}
+          npx -y @djankies/vitest-mcp@latest
           ```
           
           ### 🔗 Claude Desktop Configuration
@@ -254,7 +260,7 @@ jobs:
             "mcpServers": {
               "vitest": {
                 "command": "npx",
-                "args": ["-y", "@djankies/vitest-mcp@${{ steps.version.outputs.version }}"]
+                "args": ["-y", "@djankies/vitest-mcp@latest"]
               }
             }
           }
