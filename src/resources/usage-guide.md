@@ -62,8 +62,7 @@ run_tests({
 ```javascript
 analyze_coverage({
   target: "./src/components",  // required
-  includeDetails: true,  // optional
-  format: "detailed"  // optional
+  format: "detailed"  // optional - "detailed" includes line-by-line coverage
 })
 ```
 
