@@ -1,5 +1,5 @@
 {
-  "name": "@djankies/vitest-mcp",
+  "name": "vitest-mcp",
   "version": "0.4.5",
   "description": "A Model Context Protocol server for Vitest test execution and management",
   "main": "dist/index.js",
