@@ -5,9 +5,9 @@
 ## Table of Contents
 
 <!-- markdownlint-disable MD051-->
-- [🤔 Why Use This?](#🤔-why-use-this)
-- [✨ Key Features](#✨-key-features)
-- [🚀 Quick Start](#🚀-quick-start)
+- [😢 The Problem with LLMs and Vitest](#😢-the-problem-with-llms-and-vitest-😢)
+- [✨ Key Features](#✨-key-features-✨)
+- [🚀 Quick Start](#🚀-quick-start-🚀)
 - [📋 Requirements](#📋-requirements)
 - [🧰 Tools](#🧰-tools)
 - [🔄 Multi-Repository Support](#🔄-multi-repository-support)
@@ -19,7 +19,7 @@
 - [📜 License](#📜-license)
 <!-- markdownlint-enable MD051 -->
 
-## 😢 The Problem with LLMs and Vitest 😢
+## 😢 The Problem with LLMs and Testing 😢
 
 - **Noisy test output** - Raw Vitest output can be extremely verbose eating up tokens/context with useless information.
 - **Full test suite runs** - LLMs sometimes forget to limit the scope of the test run, causing full test suite runs to be executed.
