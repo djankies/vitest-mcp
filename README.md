@@ -6,7 +6,7 @@
   <img width="380" height="200" src="https://glama.ai/mcp/servers/@djankies/vitest-mcp/badge" alt="Vitest Server MCP server" />
 </a>
 
-**AI-optimized Vitest runner** with intelligent coverage analysis — like 🎳 bumpers for your LLMs.
+**MCP Vitest runner** with LLM-optimized test output, log capturing, and line-by-line coverage analysis.
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@
 - [📋 Requirements](#📋-requirements)
 - [🧰 Tools](#🧰-tools)
 - [🔄 Multi-Repository Support](#🔄-multi-repository-support)
-- [🪝 Claude Code Hook (Optional)](#🪝-claude-code-hook-optional)
+- [🪝 Claude Code Hook](#🪝-claude-code-hook)
 - [🤖 LLM instructions](#🤖-llm-instructions)
 - [⚙️ Configuration](#⚙️-configuration)
 - [🔍 Development Mode \& Debugging](#🔍-development-mode--debugging)
@@ -35,15 +35,15 @@
 
 ## ✨ Key Features ✨
 
-- **Smart Test Execution** with structured output to limit noise.
-- **Console Log Capture** for separating logs from test output for debugging.
+- **Smart Test Results** with adaptive, structured output to limit noise.
+- **Console Log Capture** to prevent logs from getting lost in test output.
 - **Coverage Analysis** with line-by-line gap insights.
 - **Multi-Repository Support** in a single session with context switching.
-- **Safety Guards** prevent full project runs, watch mode, incorrect vitest commands, and context hogging.
+- **Safety Guards** prevent full project runs, watch mode, invalid vitest commands, and context hogging.
 
 ## 🚀 Quick Start 🚀
 
-The Vitest MCP server can be used with any MCP-compatible IDE or tool. The basic configuration is:
+The Vitest MCP server can be used with any MCP-compatible IDE or tool and works with all Javascript or Typescript Vitests. The basic configuration is:
 
 ```json
 {
@@ -58,7 +58,7 @@ The Vitest MCP server can be used with any MCP-compatible IDE or tool. The basic
 
 > ⚠️ **Note**: The above example may not be valid for all MCP clients. Verify your client's specific setup instructions.
 
-### 🛠️ Client-Specific Setup (Claude's Research 🤞🏻)
+### 🛠️ Client-Specific Setup
 
 Select your preferred IDE or tool from the setup guides below:
 
@@ -241,8 +241,7 @@ Similar to Cursor, but use `serverUrl` instead of `url` for remote servers
 1. Open Windsurf Settings (`Cmd/Ctrl + ,`)
 2. Navigate to **Cascade settings**
 3. Add MCP server configuration
-4. For remote servers, remember to use `serverUrl` property
-5. Restart Windsurf to activate
+5. Reload MCP servers to activate
 
 </details>
 
@@ -313,7 +312,7 @@ npm install --save-dev vitest@latest @vitest/coverage-v8@latest
 
 ### `list_tests`
 
-List test files in your project. ()
+List test files in your project. Helps keep LLMs from slipping back to using command line tools while working with tests. 
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -362,7 +361,7 @@ set_project_root({ path: "/path/to/backend" })
 run_tests({ target: "./src" })
 ```
 
-## 🪝 Claude Code Hook (Optional)
+## 🪝 Claude Code Hook
 
 Automatically redirect Vitest commands to MCP tools:
 
@@ -436,7 +435,7 @@ export default defineConfig({
 
 ### Coverage Thresholds
 
-To enable coverage thresholds, they should be configured in your Vitest configuration file:
+To enable coverage threshold reporting in the `analyze_coverage` tool, just configure in your Vitest configuration file:
 
 ```typescript
 // vitest.config.ts or vitest.mcp.config.ts
@@ -457,8 +456,8 @@ export default defineConfig({
   }
 });
 ```
-
-> 💡 Note: If the vitest coverage config option is not defined, the MCP server will not include threshold information in its responses.
+> 
+> 💡 **Note**: Coverage analysis is always available regardless of threshold settings. Threshold reporting just helps keep your LLM on target.
 
 ### Vitest-MCP Configuration File
 
@@ -522,13 +521,13 @@ VITEST_MCP_DEV_MODE=true
 
 ## 🔧 Troubleshooting
 
-**"Project root has not been set"** - Call `set_project_root` first 📁
-
-**"Vitest not found"** - Install: `npm install --save-dev vitest@latest` 📦
+**"Vitest not found"** - Install: `npm install --save-dev vitest@latest`
 
 **"Coverage provider not found"** - Install: `npm install --save-dev @vitest/coverage-v8@latest` 📊
 
-**Hook issues** - Bypass with: `vitest --bypass-hook` 🪝
+**Hook issues** - Bypass with: `VITEST_HOOK_BYPASS=1 npm test`
+
+**Found a bug?** Submit a bug report, please, and thank you. 
 
 ## 📜 License
 
