@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import { config as dotenvConfig } from "dotenv";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { readFile } from "fs/promises";
@@ -8,7 +7,15 @@ import { readFile } from "fs/promises";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-dotenvConfig({ path: join(dirname(__dirname), ".env.development") });
+// Only load dotenv in development mode
+if (process.env.VITEST_MCP_DEV_MODE === "true") {
+  try {
+    const { config: dotenvConfig } = await import("dotenv");
+    dotenvConfig({ path: join(dirname(__dirname), ".env.development") });
+  } catch {
+    // dotenv not available in production, which is fine
+  }
+}
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";

@@ -1,6 +1,6 @@
 # 🧪 Vitest MCP Server
 
-**AI-optimized Vitest runner** with intelligent coverage analysis.
+**AI-optimized Vitest runner** with intelligent coverage analysis — like 🎳 bumpers for your LLMs.
 
 ## Table of Contents
 
@@ -19,22 +19,23 @@
 - [📜 License](#📜-license)
 <!-- markdownlint-enable MD051 -->
 
-## 🤔 What This Solves
+## 😢 The Problem with LLMs and Vitest 😢
 
-- **Noisy test output** - Raw Vitest output is verbose and difficult for AI to parse.
-- **Unintended full test suite runs** - helps prevent running the entire test suite by accident 🎯
-- **Console log capture** to debug test failures 🐛
-- **Coverage gap analysis** with line-by-line insights 📊
+- **Noisy test output** - Raw Vitest output can be extremely verbose eating up tokens/context with useless information.
+- **Full test suite runs** - LLMs sometimes forget to limit the scope of the test run, causing full test suite runs to be executed.
+- **Buried console logs** - Console logs can be hidden in test output, making it inefficient for LLMs to debug test failures.
+- **Raw coverage files** - Raw coverage files are too large for AI to parse.
+- **Watch mode** - LLMs get stuck when vitest runs in watch mode.
 
-## ✨ Key Features
+## ✨ Key Features ✨
 
-- **Smart Test Execution** with structured output 📋
-- **Console Log Capture** for debugging (`showLogs` parameter) 📝
-- **Coverage Analysis** with gap insights 📈
-- **Multi-Repository Support** in single session with context switching 🔄
-- **Safety Guards** prevent full project runs and resource exhaustion 🛡️
+- **Smart Test Execution** with structured output to limit noise.
+- **Console Log Capture** for separating logs from test output for debugging.
+- **Coverage Analysis** with line-by-line gap insights.
+- **Multi-Repository Support** in a single session with context switching.
+- **Safety Guards** prevent full project runs, watch mode, incorrect vitest commands, and context hogging.
 
-## 🚀 Quick Start
+## 🚀 Quick Start 🚀
 
 The Vitest MCP server can be used with any MCP-compatible IDE or tool. The basic configuration is:
 
