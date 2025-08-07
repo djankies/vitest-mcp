@@ -2,12 +2,11 @@
 
 # Claude Code PreToolUse hook for intercepting Vitest commands
 # Redirects Vitest commands to use the MCP server for better AI integration
+# Use BYPASS_VITEST_HOOK=1 environment variable to bypass this hook
 
 # https://github.com/djankies/vitest-mcp
 
 set -e
-
-BYPASS_FLAG="--bypass-hook"
 
 input=$(cat)
 command=$(echo "$input" | jq -r '.tool_input.command // empty')
@@ -80,6 +79,20 @@ check_npm_script_for_vitest() {
     return 1
 }
 
+show_bypass_help() {
+    cat >&2 <<EOF
+╭─ Vitest Hook Active ──────────────────────────╮
+│ To bypass and use Vitest directly:            │
+│                                                │
+│   BYPASS_VITEST_HOOK=1 npm test               │
+│   BYPASS_VITEST_HOOK=1 npx vitest run         │
+│                                                │
+│ Or export for entire session:                 │
+│   export BYPASS_VITEST_HOOK=1                 │
+╰────────────────────────────────────────────────╯
+EOF
+}
+
 generate_mcp_suggestion() {
     local cmd="$1"
     local parsed
@@ -121,25 +134,41 @@ generate_mcp_suggestion() {
 main() {
     [[ -n "$command" ]] || exit 0
     
-    # Check if bypass flag is present
-    if [[ " $command " == *" $BYPASS_FLAG "* ]] || [[ "$command" == "$BYPASS_FLAG" ]] || [[ "$command" == *" $BYPASS_FLAG" ]] || [[ "$command" == "$BYPASS_FLAG "* ]]; then
-        # Remove the bypass flag from the command
-        cleaned_command="${command//$BYPASS_FLAG/}"
-        # Remove any double spaces that may result
-        cleaned_command=$(echo "$cleaned_command" | sed 's/  */ /g' | sed 's/^ *//;s/ *$//')
-        
-        # Output the cleaned command for the tool to use
-        echo "$input" | jq --arg cmd "$cleaned_command" '.tool_input.command = $cmd'
-        echo "✓ Hook bypassed - executing: $cleaned_command" >&2
+    # Check if command starts with bypass environment variables
+    if [[ "$command" =~ ^(BYPASS_VITEST_HOOK|VITEST_MCP_BYPASS|VITEST_HOOK_BYPASS)= ]]; then
+        # Allow bypass - don't strip these, let them pass through
         exit 0
     fi
+    
+    # Check if command has other environment variable prefix pattern (e.g., FOO=bar command)
+    # This prevents bypassing the hook with arbitrary env vars
+    if [[ "$command" =~ ^[A-Z_][A-Z0-9_]*= ]]; then
+        # Extract the actual command after the env var
+        actual_command=$(echo "$command" | sed 's/^[A-Z_][A-Z0-9_]*=[^[:space:]]*[[:space:]]*//')
+        # Use the actual command for processing
+        command="$actual_command"
+    fi
+    
+    # Check environment variable bypass (in case they were exported)
+    if [[ -n "${BYPASS_VITEST_HOOK}" ]] || [[ -n "${VITEST_MCP_BYPASS}" ]] || [[ -n "${VITEST_HOOK_BYPASS}" ]]; then
+        [[ -n "${VITEST_HOOK_DEBUG}" ]] && echo "✓ Hook bypassed via environment variable" >&2
+        exit 0
+    fi
+    
+    # Debug mode
+    [[ -n "${VITEST_HOOK_DEBUG}" ]] && {
+        echo "🔍 Debug: Command: $command" >&2
+        echo "🔍 Debug: BYPASS VITEST HOOK: ${BYPASS_VITEST_HOOK:-not set}" >&2
+        echo "🔍 Debug: Vitest project: $(is_vitest_project && echo 'yes' || echo 'no')" >&2
+    }
     
     if ! is_vitest_project; then
         exit 0
     fi
     
     if generate_mcp_suggestion "$command"; then
-        echo "💡 Add $BYPASS_FLAG to use Vitest directly" >&2
+        echo "💡 Set BYPASS_VITEST_HOOK=1 to use Vitest directly" >&2
+        [[ -n "${VITEST_HOOK_VERBOSE}" ]] && show_bypass_help
         exit 2
     fi
     
