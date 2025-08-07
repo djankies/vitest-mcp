@@ -215,7 +215,7 @@ describe('run-tests (basic functionality)', () => {
       // Assert
       expect(spawn).toHaveBeenCalledWith(
         'npx',
-        expect.arrayContaining(['vitest', 'run', 'test.ts', '--reporter=json', '--project', 'web', '--browser.headless=true']),
+        expect.arrayContaining(['vitest', 'run', 'test.ts', '--reporter=json', '--project', 'web']),
         expect.any(Object)
       );
     });
@@ -671,7 +671,7 @@ describe('run-tests (basic functionality)', () => {
       // Assert
       expect(spawn).toHaveBeenCalledWith(
         'npx',
-        ['vitest', 'run', 'test.ts', '--reporter=json', '--browser.headless=true'],
+        ['vitest', 'run', 'test.ts', '--reporter=json'],
         expect.objectContaining({
           cwd: '/test/project',
           stdio: ['ignore', 'pipe', 'pipe']

@@ -273,9 +273,8 @@ class TestRunner {
       vitestArgs.push("--project", args.project);
     }
 
-    // Force headless mode for browser tests to prevent opening browser windows
-    // This ensures tests run in CI-like environment
-    vitestArgs.push("--browser.headless=true");
+    // Note: We don't force browser mode settings here to avoid conflicts
+    // Let the project's vitest configuration handle browser settings
 
     return vitestArgs;
   }

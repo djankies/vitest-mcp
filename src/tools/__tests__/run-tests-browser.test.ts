@@ -31,7 +31,7 @@ vi.mock('fs', () => ({
   unlinkSync: vi.fn()
 }));
 
-describe('run-tests (browser mode handling)', () => {
+describe('run-tests (project configuration respect)', () => {
   let mockChildProcess: any;
 
   beforeEach(() => {
@@ -67,8 +67,8 @@ describe('run-tests (browser mode handling)', () => {
     vi.restoreAllMocks();
   });
 
-  describe('Browser Headless Mode', () => {
-    it('should add --browser.headless=true flag to vitest command', async () => {
+  describe('Project Configuration Respect', () => {
+    it('should not force browser mode settings', async () => {
       // Arrange
       const args = {
         target: './src/components/Button.test.ts'
@@ -85,15 +85,17 @@ describe('run-tests (browser mode handling)', () => {
 
       await testPromise;
 
-      // Assert - Check that spawn was called with headless flag
+      // Assert - Check that spawn was called without browser flags
       expect(spawn).toHaveBeenCalled();
       const spawnCall = vi.mocked(spawn).mock.calls[0];
       const [, spawnArgs] = spawnCall;
       
-      expect(spawnArgs).toContain('--browser.headless=true');
+      // Should not contain browser-related flags
+      expect(spawnArgs).not.toContain('--browser.headless=true');
+      expect(spawnArgs).not.toContain('--browser.headless=false');
     });
 
-    it('should include headless flag even with project parameter', async () => {
+    it('should respect project parameter without forcing browser settings', async () => {
       // Arrange
       const args = {
         target: './src/components',
@@ -111,17 +113,19 @@ describe('run-tests (browser mode handling)', () => {
 
       await testPromise;
 
-      // Assert - Check that both project and headless flags are present
+      // Assert - Check that project flag is present but no browser flags
       expect(spawn).toHaveBeenCalled();
       const spawnCall = vi.mocked(spawn).mock.calls[0];
       const [, spawnArgs] = spawnCall;
       
       expect(spawnArgs).toContain('--project');
       expect(spawnArgs).toContain('storybook');
-      expect(spawnArgs).toContain('--browser.headless=true');
+      // Should not force browser settings
+      expect(spawnArgs).not.toContain('--browser.headless=true');
+      expect(spawnArgs).not.toContain('--browser.headless=false');
     });
 
-    it('should include headless flag with showLogs option', async () => {
+    it('should handle showLogs option without forcing browser settings', async () => {
       // Arrange
       const args = {
         target: './src/utils',
@@ -139,16 +143,19 @@ describe('run-tests (browser mode handling)', () => {
 
       await testPromise;
 
-      // Assert - Check that headless flag is still present with showLogs
+      // Assert - Check that showLogs works without forcing browser settings
       expect(spawn).toHaveBeenCalled();
       const spawnCall = vi.mocked(spawn).mock.calls[0];
       const [, spawnArgs] = spawnCall;
       
-      expect(spawnArgs).toContain('--browser.headless=true');
+      // Should not force browser settings
+      expect(spawnArgs).not.toContain('--browser.headless=true');
+      expect(spawnArgs).not.toContain('--browser.headless=false');
+      // Should still include console intercept flag for showLogs
       expect(spawnArgs).toContain('--disable-console-intercept');
     });
 
-    it('should prevent browser window from opening in complex configs', async () => {
+    it('should respect project browser configuration without forcing settings', async () => {
       // Arrange - Simulate a project with browser mode configuration
       vi.mocked(configFinder.findVitestConfig).mockResolvedValue('/test/project/vitest.config.ts');
       
@@ -177,13 +184,15 @@ describe('run-tests (browser mode handling)', () => {
 
       await testPromise;
 
-      // Assert - Verify headless flag overrides config
+      // Assert - Verify we don't force browser settings
       expect(spawn).toHaveBeenCalled();
       const spawnCall = vi.mocked(spawn).mock.calls[0];
       const [, spawnArgs] = spawnCall;
       
-      // The headless flag should be present to override any config
-      expect(spawnArgs).toContain('--browser.headless=true');
+      // Should not force browser settings - let project config handle it
+      expect(spawnArgs).not.toContain('--browser.headless=true');
+      expect(spawnArgs).not.toContain('--browser.headless=false');
+      // Should still use JSON reporter
       expect(spawnArgs).toContain('--reporter=json');
     });
   });

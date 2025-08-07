@@ -377,7 +377,8 @@ class CoverageAnalyzer {
     const command = ["npx", "vitest", "run"];
 
     // Basic coverage settings
-    command.push("--browser.headless=true");
+    // Don't force browser mode - let the project configuration determine this
+    // Coverage works with or without browser mode depending on project setup
     command.push("--ui=false");
     command.push("--coverage.clean=true");
     command.push("--coverage.cleanOnRerun=true");
