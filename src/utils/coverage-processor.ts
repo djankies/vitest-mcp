@@ -40,7 +40,6 @@ interface FileBreakdownItem {
 
 export interface CoverageProcessingOptions {
   target: string;
-  includeDetails: boolean;
 }
 
 /**

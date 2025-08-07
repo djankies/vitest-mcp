@@ -24,7 +24,6 @@ vi.mock('../../config/config-loader.js', () => ({
     coverageDefaults: {
       threshold: 80,
       format: 'summary',
-      includeDetails: false,
       thresholds: {
         lines: 80,
         functions: 80,

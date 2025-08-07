@@ -46,7 +46,7 @@ describe('coverage-processor', () => {
       }
     };
 
-    const options = { target: './src', includeDetails: false };
+    const options = { target: './src' };
 
     it('should process coverage data and calculate percentages correctly', async () => {
       const result = await processCoverageData(mockRawData, 'summary', options);

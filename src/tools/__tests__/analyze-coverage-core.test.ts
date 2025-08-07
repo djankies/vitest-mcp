@@ -270,7 +270,7 @@ describe('analyze-coverage (core functionality)', () => {
       vi.mocked(coverageProcessor.processCoverageData).mockImplementation(async (data, format, options) => {
         // No thresholds are passed to the processor since they're handled by Vitest
         expect(options.target).toBeDefined();
-        expect(options.includeDetails).toBeDefined();
+        // includeDetails is determined by format parameter, not passed separately
         return {
           success: true,
           coverage: { lines: 90, functions: 95, branches: 75, statements: 85 },

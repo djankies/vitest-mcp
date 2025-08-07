@@ -206,7 +206,6 @@ class CoverageAnalyzer {
       format as "summary" | "detailed",
       {
         target: args.target,
-        includeDetails: format === "detailed",
       }
     );
 
