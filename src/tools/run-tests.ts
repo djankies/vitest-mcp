@@ -123,9 +123,10 @@ export interface TestResults {
 }
 
 export interface ProcessedTestResult {
+  summary: string;  // One-line summary for MCP clients that truncate output
   command: string;
   success: boolean;
-  summary: TestSummary;
+  testSummary: TestSummary;
   format: TestFormat;
   executionTimeMs: number;  // Total operation duration in milliseconds
   logs?: string[];

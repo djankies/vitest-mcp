@@ -25,9 +25,10 @@ describe('VitestOutputProcessor', () => {
       const processed = await processor.process(result, 'summary', {} as TestResultContext);
       
       expect(processed.success).toBe(false);
-      expect(processed.summary.totalTests).toBe(5);
-      expect(processed.summary.passed).toBe(3);
-      expect(processed.summary.failed).toBe(2);
+      expect(processed.summary).toContain('failed');
+      expect(processed.testSummary.totalTests).toBe(5);
+      expect(processed.testSummary.passed).toBe(3);
+      expect(processed.testSummary.failed).toBe(2);
     });
 
     it('should handle malformed JSON gracefully', async () => {
@@ -42,9 +43,9 @@ describe('VitestOutputProcessor', () => {
       
       const processed = await processor.process(result, 'summary', {} as TestResultContext);
       
-      expect(processed.summary.totalTests).toBe(0);
-      expect(processed.summary.passed).toBe(0);
-      expect(processed.summary.failed).toBe(0);
+      expect(processed.testSummary.totalTests).toBe(0);
+      expect(processed.testSummary.passed).toBe(0);
+      expect(processed.testSummary.failed).toBe(0);
     });
 
     it('should extract JSON from mixed output', async () => {
@@ -65,9 +66,9 @@ describe('VitestOutputProcessor', () => {
       const processed = await processor.process(result, 'summary', {} as TestResultContext);
       
       expect(processed.success).toBe(true);
-      expect(processed.summary.totalTests).toBe(2);
-      expect(processed.summary.passed).toBe(2);
-      expect(processed.summary.failed).toBe(0);
+      expect(processed.testSummary.totalTests).toBe(2);
+      expect(processed.testSummary.passed).toBe(2);
+      expect(processed.testSummary.failed).toBe(0);
     });
   });
 
@@ -93,9 +94,9 @@ describe('VitestOutputProcessor', () => {
       const processed = await processor.process(result, 'summary', {} as TestResultContext);
       
       expect(processed.success).toBe(true);
-      expect(processed.summary.totalTests).toBe(3);
-      expect(processed.summary.passed).toBe(3);
-      expect(processed.summary.failed).toBe(0);
+      expect(processed.testSummary.totalTests).toBe(3);
+      expect(processed.testSummary.passed).toBe(3);
+      expect(processed.testSummary.failed).toBe(0);
       expect(processed.testResults).toBeUndefined(); // No failures to report
     });
 
@@ -133,7 +134,7 @@ describe('VitestOutputProcessor', () => {
       const processed = await processor.process(result, 'detailed', {} as TestResultContext);
       
       expect(processed.success).toBe(false);
-      expect(processed.summary.failed).toBe(1);
+      expect(processed.testSummary.failed).toBe(1);
       expect(processed.testResults?.failedTests).toBeDefined();
       expect(processed.testResults?.failedTests?.[0].tests[0]).toMatchObject({
         testName: "test suite should work",
@@ -174,7 +175,7 @@ describe('VitestOutputProcessor', () => {
       
       const processed = await processor.process(result, 'summary', {} as TestResultContext);
       
-      expect(processed.summary.skipped).toBe(1);
+      expect(processed.testSummary.skipped).toBe(1);
       expect(processed.testResults?.skippedTests).toBeDefined();
       expect(processed.testResults?.skippedTests?.[0].tests[0].testName).toBe("test suite should be skipped");
     });
@@ -193,7 +194,7 @@ describe('VitestOutputProcessor', () => {
       
       const processed = await processor.process(result, 'summary', {} as TestResultContext);
       
-      expect(processed.summary.totalTests).toBe(0);
+      expect(processed.testSummary.totalTests).toBe(0);
       expect(processed.success).toBe(false);
     });
 

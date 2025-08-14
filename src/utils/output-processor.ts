@@ -109,11 +109,15 @@ export class VitestOutputProcessor implements OutputProcessor {
     // Generate test results from JSON
     const testResults = await this.generateTestResults(jsonData, format);
 
+    // Create a one-line summary for MCP clients
+    const summaryLine = this.createSummaryLine(summary, result.exitCode === 0);
+
     // Build the clean response structure
     const processedResult: ProcessedTestResult = {
+      summary: summaryLine,
       command: result.command,
       success: result.success && result.exitCode === 0,
-      summary,
+      testSummary: summary,
       format,
       executionTimeMs: Math.round((result.duration || 0) * 100) / 100  // Total operation duration in milliseconds
     };
@@ -126,6 +130,35 @@ export class VitestOutputProcessor implements OutputProcessor {
     return processedResult;
   }
 
+
+  /**
+   * Create a one-line summary for MCP clients
+   */
+  private createSummaryLine(summary: TestSummary, success: boolean): string {
+    if (summary.totalTests === 0) {
+      return "No tests found";
+    }
+    
+    if (success && summary.failed === 0) {
+      return `✅ All ${summary.totalTests} tests passed`;
+    }
+    
+    const parts: string[] = [];
+    
+    if (summary.failed > 0) {
+      parts.push(`❌ ${summary.failed} failed`);
+    }
+    
+    if (summary.passed > 0) {
+      parts.push(`✅ ${summary.passed} passed`);
+    }
+    
+    if (summary.skipped && summary.skipped > 0) {
+      parts.push(`⏭️ ${summary.skipped} skipped`);
+    }
+    
+    return parts.join(', ') + ` (${summary.totalTests} total)`;
+  }
 
   /**
    * Parse Vitest JSON output with improved robustness

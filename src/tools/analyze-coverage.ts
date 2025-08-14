@@ -845,6 +845,7 @@ async function executeCommand(
  */
 function createErrorAnalysis(_error: unknown): CoverageAnalysisResult {
   return {
+    summary: "❌ Coverage analysis failed",
     success: false,
     coverage: {
       lines: 0,
