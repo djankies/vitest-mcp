@@ -60,6 +60,7 @@ export interface CoverageQualityScore {
 }
 
 export interface CoverageAnalysisResult {
+  summary: string;  // One-line summary for MCP clients that truncate output
   success: boolean;
   coverage: {
     lines: number;

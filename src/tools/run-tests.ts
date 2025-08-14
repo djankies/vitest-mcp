@@ -123,9 +123,10 @@ export interface TestResults {
 }
 
 export interface ProcessedTestResult {
+  summary: string;  // One-line summary for MCP clients that truncate output
   command: string;
   success: boolean;
-  summary: TestSummary;
+  testSummary: TestSummary;
   format: TestFormat;
   executionTimeMs: number;  // Total operation duration in milliseconds
   logs?: string[];
@@ -273,6 +274,9 @@ class TestRunner {
       vitestArgs.push("--project", args.project);
     }
 
+    // Note: We don't force browser mode settings here to avoid conflicts
+    // Let the project's vitest configuration handle browser settings
+
     return vitestArgs;
   }
 
@@ -387,7 +391,11 @@ export default mergeConfig(
   baseConfig,
   defineConfig({
     test: {
-      setupFiles: ['${setupFilePath!.replace(/\\/g, "\\\\")}']
+      setupFiles: ['${setupFilePath!.replace(/\\/g, "\\\\")}'],
+      browser: {
+        ...baseConfig?.test?.browser,
+        headless: true
+      }
     }
   })
 );
@@ -599,7 +607,9 @@ async function executeVitest(
       env: {
         ...process.env,
         NODE_ENV: 'test',
-        VITEST_MCP_OPTIMIZED: '1'
+        VITEST_MCP_OPTIMIZED: '1',
+        // Suppress Vite CJS deprecation warning
+        VITE_CJS_IGNORE_WARNING: 'true'
       }
     });
 

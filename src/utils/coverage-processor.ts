@@ -43,6 +43,30 @@ export interface CoverageProcessingOptions {
 }
 
 /**
+ * Create a one-line summary for MCP clients
+ */
+function createCoverageSummaryLine(
+  coverage: { lines: number; functions: number; branches: number; statements: number },
+  totals: { lines: number; functions: number; branches: number }
+): string {
+  if (totals.lines === 0) {
+    return "No code to cover";
+  }
+  
+  const avgCoverage = Math.round(
+    (coverage.lines + coverage.functions + coverage.branches + coverage.statements) / 4
+  );
+  
+  if (avgCoverage >= 80) {
+    return `✅ Coverage: ${coverage.lines}% lines, ${coverage.functions}% functions, ${coverage.branches}% branches`;
+  } else if (avgCoverage >= 60) {
+    return `⚠️ Coverage: ${coverage.lines}% lines, ${coverage.functions}% functions, ${coverage.branches}% branches`;
+  } else {
+    return `❌ Low coverage: ${coverage.lines}% lines, ${coverage.functions}% functions, ${coverage.branches}% branches`;
+  }
+}
+
+/**
  * Main function to process raw coverage data into structured analysis
  */
 export async function processCoverageData(
@@ -71,7 +95,11 @@ export async function processCoverageData(
       console.error('Coverage processor - thresholds:', thresholds, 'coverage:', coverage);
     }
 
+    // Create a one-line summary for MCP clients
+    const summaryLine = createCoverageSummaryLine(coverage, totals);
+
     const result: CoverageAnalysisResult = {
+      summary: summaryLine,
       success: true,
       coverage,
       file: targetFile,

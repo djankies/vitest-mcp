@@ -124,18 +124,17 @@ describe('analyze-coverage exclude patterns', () => {
     expect(spawn).toHaveBeenCalled();
     const command = spawn.mock.calls[0][1] as string[];
     
-    // Verify that default exclude patterns are included for BOTH test execution and coverage
-    // Test execution excludes (these come early in the command)
-    expect(command).toContain('--exclude');
-    expect(command).toContain('**/*.stories.*');
-    expect(command).toContain('**/*.story.*');
-    expect(command).toContain('**/.storybook/**');
-    // Coverage excludes
-    expect(command).toContain('--coverage.exclude');
+    // Verify that default exclude patterns are included ONLY for coverage (not test execution)
+    // Should NOT have plain --exclude flags (this was the bug)
+    expect(command).not.toContain('--exclude');
     
-    // Verify the exclude patterns appear in pairs (flag, pattern)
-    const excludeIndices = command.map((item, idx) => item === '--exclude' ? idx : -1).filter(idx => idx !== -1);
-    expect(excludeIndices.length).toBeGreaterThan(0);
+    // Coverage excludes should use the --coverage.exclude=pattern format
+    // The getExcludePatterns method returns these hardcoded defaults
+    expect(command).toContain('--coverage.exclude=**/storybook/**');
+    expect(command).toContain('--coverage.exclude=**/.storybook/**');
+    expect(command).toContain('--coverage.exclude=**/storybook-static/**');
+    expect(command).toContain('--coverage.exclude=**/*.stories.*');
+    expect(command).toContain('--coverage.exclude=**/*.story.*');
   });
 
   it('should allow custom exclude patterns to override defaults', async () => {
@@ -180,13 +179,15 @@ describe('analyze-coverage exclude patterns', () => {
     expect(spawn).toHaveBeenCalled();
     const command = spawn.mock.calls[0][1] as string[];
     
-    // Verify that custom exclude patterns are used for BOTH test execution and coverage
-    expect(command).toContain('--exclude');
-    expect(command).toContain('**/*.custom.*');
-    expect(command).toContain('**/special/**');
-    expect(command).toContain('--coverage.exclude');
+    // Verify that custom exclude patterns are used ONLY for coverage (not test execution)
+    // Should NOT have plain --exclude flags (this was the bug)
+    expect(command).not.toContain('--exclude');
+    
+    // Custom patterns should use the --coverage.exclude=pattern format
+    expect(command).toContain('--coverage.exclude=**/*.custom.*');
+    expect(command).toContain('--coverage.exclude=**/special/**');
     
     // Should not contain default patterns when custom ones are provided
-    expect(command).not.toContain('**/*.stories.*');
+    expect(command).not.toContain('--coverage.exclude=**/*.stories.*');
   });
 });

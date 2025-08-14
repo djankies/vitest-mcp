@@ -88,16 +88,36 @@ export class VitestOutputProcessor implements OutputProcessor {
       }
     }
     
-    const summary = jsonData ? this.extractSummaryFromJson(jsonData) : this.getErrorSummary();
+    // If JSON parsing failed, try to extract information from raw output
+    let summary: TestSummary;
+    if (jsonData) {
+      summary = this.extractSummaryFromJson(jsonData);
+    } else {
+      // Fallback to text parsing if JSON parsing failed
+      if (process.env.VITEST_MCP_DEBUG) {
+        console.error('[DEBUG] JSON parsing failed, falling back to text parsing');
+      }
+      summary = this.extractSummaryFromOutput(result.stdout);
+      
+      // If we still couldn't get any test counts and the exit code was 0, 
+      // it might mean tests ran but output wasn't captured properly
+      if (summary.totalTests === 0 && result.exitCode === 0 && result.stdout.includes('Test')) {
+        console.warn('Warning: Tests may have run but output parsing failed. Consider enabling VITEST_MCP_DEBUG=true for troubleshooting.');
+      }
+    }
 
     // Generate test results from JSON
     const testResults = await this.generateTestResults(jsonData, format);
 
+    // Create a one-line summary for MCP clients
+    const summaryLine = this.createSummaryLine(summary, result.exitCode === 0);
+
     // Build the clean response structure
     const processedResult: ProcessedTestResult = {
+      summary: summaryLine,
       command: result.command,
       success: result.success && result.exitCode === 0,
-      summary,
+      testSummary: summary,
       format,
       executionTimeMs: Math.round((result.duration || 0) * 100) / 100  // Total operation duration in milliseconds
     };
@@ -112,18 +132,50 @@ export class VitestOutputProcessor implements OutputProcessor {
 
 
   /**
-   * Parse Vitest JSON output with optimizations - 15-25% faster JSON processing
+   * Create a one-line summary for MCP clients
+   */
+  private createSummaryLine(summary: TestSummary, success: boolean): string {
+    if (summary.totalTests === 0) {
+      return "No tests found";
+    }
+    
+    if (success && summary.failed === 0) {
+      return `✅ All ${summary.totalTests} tests passed`;
+    }
+    
+    const parts: string[] = [];
+    
+    if (summary.failed > 0) {
+      parts.push(`❌ ${summary.failed} failed`);
+    }
+    
+    if (summary.passed > 0) {
+      parts.push(`✅ ${summary.passed} passed`);
+    }
+    
+    if (summary.skipped && summary.skipped > 0) {
+      parts.push(`⏭️ ${summary.skipped} skipped`);
+    }
+    
+    return parts.join(', ') + ` (${summary.totalTests} total)`;
+  }
+
+  /**
+   * Parse Vitest JSON output with improved robustness
    */
   private parseVitestJson(stdout: string): VitestJsonResult | null {
     const parseStartTime = performance.now();
     
     try {
-      // Optimization: Early exit for empty or very small outputs
+      // Early exit for empty or very small outputs
       if (!stdout || stdout.length < 10) {
+        if (process.env.VITEST_MCP_DEBUG) {
+          console.error('[DEBUG] Output too short to contain valid JSON');
+        }
         return null;
       }
       
-      // Optimization: Use pre-compiled regex patterns for faster matching
+      // Pre-compiled regex patterns for Vitest JSON detection
       const vitestPatterns = [
         /{"numTotalTestSuites":\d+/,
         /{"numTotalTests":\d+/,
@@ -138,11 +190,15 @@ export class VitestOutputProcessor implements OutputProcessor {
           const parsed = JSON.parse(trimmed);
           if (this.isVitestJson(parsed)) {
             if (process.env.VITEST_MCP_DEBUG) {
-              console.error(`[PERF] JSON parse (direct): ${(performance.now() - parseStartTime).toFixed(1)}ms`);
+              console.error(`[DEBUG] JSON parsed successfully (direct): ${(performance.now() - parseStartTime).toFixed(1)}ms`);
+              console.error(`[DEBUG] Found ${parsed.numTotalTests} tests`);
             }
             return parsed;
           }
-        } catch {
+        } catch (e) {
+          if (process.env.VITEST_MCP_DEBUG) {
+            console.error('[DEBUG] Direct JSON parse failed:', e instanceof Error ? e.message : 'Unknown error');
+          }
           // Fall through to more complex parsing
         }
       }
@@ -160,6 +216,10 @@ export class VitestOutputProcessor implements OutputProcessor {
       if (jsonStart === -1) {
         // Fallback: Look for any JSON-like structure with Vitest fields
         const lines = stdout.split('\n');
+        if (process.env.VITEST_MCP_DEBUG) {
+          console.error(`[DEBUG] Searching ${lines.length} lines for JSON`);
+        }
+        
         for (let i = 0; i < lines.length; i++) {
           const line = lines[i].trim();
           if (line.startsWith('{') && this.containsVitestFields(line)) {
@@ -167,14 +227,22 @@ export class VitestOutputProcessor implements OutputProcessor {
               const parsed = JSON.parse(line);
               if (this.isVitestJson(parsed)) {
                 if (process.env.VITEST_MCP_DEBUG) {
-                  console.error(`[PERF] JSON parse (line search): ${(performance.now() - parseStartTime).toFixed(1)}ms`);
+                  console.error(`[DEBUG] JSON found on line ${i + 1} (line search): ${(performance.now() - parseStartTime).toFixed(1)}ms`);
+                  console.error(`[DEBUG] Found ${parsed.numTotalTests} tests`);
                 }
                 return parsed;
               }
-            } catch {
+            } catch (e) {
+              if (process.env.VITEST_MCP_DEBUG) {
+                console.error(`[DEBUG] Failed to parse line ${i + 1}: ${e instanceof Error ? e.message : 'Unknown error'}`);
+              }
               continue;
             }
           }
+        }
+        
+        if (process.env.VITEST_MCP_DEBUG) {
+          console.error('[DEBUG] No valid JSON found in any line');
         }
         return null;
       }
@@ -250,22 +318,35 @@ export class VitestOutputProcessor implements OutputProcessor {
   }
   
   /**
-   * Validate that parsed JSON is Vitest output (optimized checks)
+   * Validate that parsed JSON is Vitest output with improved checks
    */
   private isVitestJson(data: unknown): data is VitestJsonResult {
     if (!data || typeof data !== 'object') {
       return false;
     }
     const obj = data as Record<string, unknown>;
-    return (
+    
+    // Check for key Vitest JSON reporter fields
+    // Both old and new Vitest versions should have at least some of these
+    const hasTestCounts = 
       typeof obj.numTotalTests === 'number' ||
-      Array.isArray(obj.testResults) ||
-      typeof obj.success === 'boolean'
-    );
+      typeof obj.numTotalTestSuites === 'number';
+    
+    const hasTestResults = Array.isArray(obj.testResults);
+    const hasSuccess = typeof obj.success === 'boolean';
+    
+    // Need at least two of these to be considered valid Vitest JSON
+    const validFields = [hasTestCounts, hasTestResults, hasSuccess].filter(Boolean).length;
+    
+    if (process.env.VITEST_MCP_DEBUG && validFields > 0) {
+      console.error(`[DEBUG] JSON validation: counts=${hasTestCounts}, results=${hasTestResults}, success=${hasSuccess}`);
+    }
+    
+    return validFields >= 2;
   }
 
   /**
-   * Extract summary information from raw Vitest output
+   * Extract summary information from raw Vitest output with improved patterns
    */
   private extractSummaryFromOutput(stdout: string): TestSummary {
     const summary: TestSummary = {
@@ -279,23 +360,22 @@ export class VitestOutputProcessor implements OutputProcessor {
     const lines = stdout.split('\n');
     
     for (const line of lines) {
-      // Match patterns like "Test Files  2 passed (2)"
-      const testFilesMatch = line.match(/Test Files\s+(\d+)\s+passed(?:\s+\|\s+(\d+)\s+failed)?/);
+      // Match patterns like "Test Files  2 passed (2)" or "Test Files  1 failed | 2 passed (3)"
+      const testFilesMatch = line.match(/Test Files\s+(?:(\d+)\s+failed\s*\|\s*)?(\d+)\s+passed(?:\s+\|[^(]+)?\s*\((\d+)\)/);
       if (testFilesMatch) {
-        summary.passed = parseInt(testFilesMatch[1], 10);
-        summary.failed = testFilesMatch[2] ? parseInt(testFilesMatch[2], 10) : 0;
+        // Note: These are file counts, not test counts, but we continue looking for actual test counts
       }
 
-      // Match patterns like "Tests  5 passed (5)" or "Tests  7 failed (7)"
-      const testsMatch = line.match(/Tests\s+(\d+)\s+(passed|failed)(?:\s+\((\d+)\))?/);
+      // Match patterns like "Tests  5 passed (5)" or "Tests  2 failed | 3 passed | 1 skipped (6)"
+      const testsMatch = line.match(/Tests\s+(?:(\d+)\s+failed\s*\|?\s*)?(?:(\d+)\s+passed)?(?:\s*\|\s*(\d+)\s+skipped)?\s*\((\d+)\)/);
       if (testsMatch) {
-        const count = parseInt(testsMatch[1], 10);
-        const status = testsMatch[2];
+        summary.failed = testsMatch[1] ? parseInt(testsMatch[1], 10) : 0;
+        summary.passed = testsMatch[2] ? parseInt(testsMatch[2], 10) : 0;
+        summary.skipped = testsMatch[3] ? parseInt(testsMatch[3], 10) : 0;
+        summary.totalTests = parseInt(testsMatch[4], 10);
         
-        if (status === 'passed') {
-          summary.passed = count;
-        } else if (status === 'failed') {
-          summary.failed = count;
+        if (process.env.VITEST_MCP_DEBUG) {
+          console.error(`[DEBUG] Extracted from text: ${summary.totalTests} total, ${summary.passed} passed, ${summary.failed} failed`);
         }
         
         // Update total
