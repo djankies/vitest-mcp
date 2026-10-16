@@ -75,7 +75,9 @@ interface ParsedError {
 export class VitestOutputProcessor implements OutputProcessor {
   async process(result: RunTestsResult, format: TestFormat, _context: TestResultContext): Promise<ProcessedTestResult> {
     // Parse JSON data for all formats since we always use JSON reporter
-    const jsonData = this.parseVitestJson(result.stdout);
+    // Prefer the report file; older call sites and Vitest < 5 may still put it on stdout
+    const jsonData = (result.report ? this.parseVitestJson(result.report) : null)
+      ?? this.parseVitestJson(result.stdout);
     
     if (process.env.VITEST_MCP_DEBUG) {
       console.error('[DEBUG] Processing output:');
@@ -125,6 +127,19 @@ export class VitestOutputProcessor implements OutputProcessor {
     // Only include testResults if there are failures or skipped tests
     if (testResults && (testResults.failedTests || testResults.skippedTests)) {
       processedResult.testResults = testResults;
+    }
+
+    // Vitest failed without reporting any failing test (config error, unknown project,
+    // timeout...): surface its error output so the caller knows why.
+    if (result.exitCode !== 0 && !testResults?.failedTests) {
+      const error = this.cleanStderr(result.stderr || '');
+      if (error) {
+        processedResult.error = error.length > 4000 ? `${error.slice(0, 4000)}\n…(truncated)` : error;
+      }
+      if (summary.totalTests === 0) {
+        const firstLine = error.split('\n').find(line => line.trim()) ?? 'Vitest exited with an error';
+        processedResult.summary = `❌ ${firstLine.trim().slice(0, 200)}`;
+      }
     }
 
     return processedResult;
@@ -782,6 +797,19 @@ export class VitestOutputProcessor implements OutputProcessor {
 
     for (const suite of jsonData.testResults || []) {
       const filePath = suite.name;
+
+      // A file that fails to load (syntax error, bad import) has no assertions,
+      // only a suite-level message.
+      const hasFailedAssertion = (suite.assertionResults || []).some(a => a.status === 'failed');
+      if (suite.status === 'failed' && suite.message && !hasFailedAssertion) {
+        const parsedError = await this.parseError(suite.message, suite.name);
+        failedTestsByFile.set(filePath, [{
+          testName: '(test file failed to run)',
+          errorType: parsedError.type,
+          message: parsedError.message,
+          ...(format === 'detailed' ? { stack: parsedError.cleanStack } : {}),
+        }]);
+      }
 
       for (const assertion of suite.assertionResults || []) {
         const testName = assertion.fullName || `${assertion.ancestorTitles.join(' › ')} › ${assertion.title}`;

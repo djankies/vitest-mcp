@@ -5,14 +5,14 @@ import { createStandardToolRegistry } from '../plugins/index.js';
 import { projectContext } from '../context/project-context.js';
 import { getConfig } from '../config/config-loader.js';
 import * as fs from 'fs/promises';
-import { spawn } from 'child_process';
+import { findVitest, runVitest, createRunDirectory } from '../utils/vitest-runner.js';
 import { fileExists, isDirectory, findTestFiles } from '../utils/file-utils.js';
 import { checkAllVersions, generateVersionReport } from '../utils/version-checker.js';
 
 // Mock external dependencies
 vi.mock('@modelcontextprotocol/sdk/server/index.js');
 vi.mock('@modelcontextprotocol/sdk/server/stdio.js');
-vi.mock('child_process');
+vi.mock('../utils/vitest-runner.js');
 vi.mock('fs/promises');
 vi.mock('../config/config-loader.js');
 vi.mock('../utils/file-utils.js', () => ({
@@ -24,6 +24,36 @@ vi.mock('../utils/version-checker.js', () => ({
   checkAllVersions: vi.fn(),
   generateVersionReport: vi.fn()
 }));
+
+const mockVitest = {
+  name: 'vitest',
+  version: '5.0.0',
+  dir: '/test/project/node_modules/vitest',
+  binPath: '/test/project/node_modules/vitest/vitest.mjs'
+};
+
+/** Make the coverage run produce a report for /test/project/src/file.ts */
+function mockCoverageRun() {
+  vi.mocked(fs.readdir).mockImplementation((async () => [
+    { name: 'file.ts', isDirectory: () => false, isFile: () => true }
+  ]) as any);
+  vi.mocked(fs.readFile).mockImplementation((async (path: string) => {
+    if (String(path).endsWith('coverage-final.json')) {
+      return JSON.stringify({
+        '/test/project/src/file.ts': {
+          path: '/test/project/src/file.ts',
+          statementMap: { '0': { start: { line: 1 } } },
+          fnMap: { '0': { name: 'test', decl: { start: { line: 1 } } } },
+          branchMap: { '0': { loc: { start: { line: 1 } } } },
+          s: { '0': 1 },
+          f: { '0': 1 },
+          b: { '0': [1, 0] }
+        }
+      });
+    }
+    return JSON.stringify({ name: 'test-project' });
+  }) as any);
+}
 
 // Integration tests for complete workflows
 describe('Integration Tests', () => {
@@ -113,6 +143,11 @@ describe('Integration Tests', () => {
     });
     vi.mocked(generateVersionReport).mockReturnValue('All versions compatible');
     
+    // Vitest itself is replaced; the runner is covered by vitest-runner.test.ts and compat/
+    vi.mocked(findVitest).mockResolvedValue(mockVitest);
+    vi.mocked(createRunDirectory).mockResolvedValue({ dir: '/tmp/vitest-mcp-run', cleanup: vi.fn().mockResolvedValue(undefined) });
+    vi.mocked(runVitest).mockResolvedValue({ stdout: '', stderr: '', exitCode: 0, timedOut: false });
+
     // Create tool registry
     toolRegistry = createStandardToolRegistry({ debug: false });
   });
@@ -158,48 +193,21 @@ describe('Integration Tests', () => {
       // Arrange
       const mockProjectPath = '/test/project';
       vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify({ name: 'test-project' }));
-      
-      const mockSpawn = vi.fn().mockImplementation(() => {
-        const mockProcess = {
-          stdout: { 
-            on: vi.fn((event, callback) => {
-              if (event === 'data') {
-                // Simulate test output with proper Buffer
-                setTimeout(() => callback(Buffer.from('PASS  tests/test1.test.ts\n✓ test 1')), 10);
-              }
-            })
-          },
-          stderr: { 
-            on: vi.fn((event, callback) => {
-              if (event === 'data') {
-                // Simulate empty stderr with proper Buffer
-                setTimeout(() => callback(Buffer.from('')), 10);
-              }
-            })
-          },
-          on: vi.fn((event, callback) => {
-            if (event === 'close') {
-              // Simulate successful completion
-              setTimeout(() => callback(0), 50);
-            }
-          })
-        };
-        return mockProcess;
-      });
-      vi.mocked(spawn).mockImplementation(mockSpawn);
-      
+
       // Act - Set project root
       await toolRegistry.execute('set_project_root', { path: mockProjectPath });
-      
+
       // Act - Run tests
       const runResult = await toolRegistry.execute('run_tests', { target: './tests/test1.test.ts' });
-      
+
       // Assert
       expect(runResult.content[0].text).toContain('success');
       expect(runResult.content[0].text).toContain('npx vitest run');
-      expect(mockSpawn).toHaveBeenCalled();
+      expect(runVitest).toHaveBeenCalledWith(
+        mockVitest,
+        expect.objectContaining({ cwd: mockProjectPath, args: expect.arrayContaining(['run', 'tests/test1.test.ts']) })
+      );
     });
-
     it('should execute set_project_root → analyze_coverage workflow', async () => {
       // Arrange
       const mockProjectPath = '/test/project';
@@ -207,64 +215,25 @@ describe('Integration Tests', () => {
         return path === mockProjectPath || path.includes('package.json') || path.includes('/src');
       });
       vi.mocked(isDirectory).mockImplementation(async (path: string) => {
-        return path === mockProjectPath || path.includes('/src');
+        return path === mockProjectPath || path.endsWith('/src');
       });
-      vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify({ name: 'test-project' }));
-      
-      const mockSpawn = vi.fn().mockImplementation(() => {
-        const mockProcess = {
-          stdout: { 
-            on: vi.fn((event, callback) => {
-              if (event === 'data') {
-                // Simulate JSON coverage output
-                const jsonOutput = JSON.stringify({
-                  coverageMap: {
-                    '/test/project/src/file.ts': {
-                      path: '/test/project/src/file.ts',
-                      statementMap: { '0': { start: { line: 1 } } },
-                      fnMap: { '0': { name: 'test', decl: { start: { line: 1 } } } },
-                      branchMap: { '0': { loc: { start: { line: 1 } } } },
-                      s: { '0': 1 },
-                      f: { '0': 1 },
-                      b: { '0': [1, 0] }
-                    }
-                  }
-                });
-                setTimeout(() => callback(Buffer.from(jsonOutput)), 10);
-              }
-            })
-          },
-          stderr: { 
-            on: vi.fn((event, callback) => {
-              if (event === 'data') {
-                setTimeout(() => callback(Buffer.from('')), 10);
-              }
-            })
-          },
-          on: vi.fn((event, callback) => {
-            if (event === 'close') {
-              setTimeout(() => callback(0), 50);
-            }
-          })
-        };
-        return mockProcess;
-      });
-      vi.mocked(spawn).mockImplementation(mockSpawn);
-      
+      mockCoverageRun();
+
       // Act - Set project root
       await toolRegistry.execute('set_project_root', { path: mockProjectPath });
-      
+
       // Act - Analyze coverage
       const coverageResult = await toolRegistry.execute('analyze_coverage', { target: './src' });
-      
-      // Debug - let's see what the response contains
-      console.log('Coverage analysis result:', JSON.stringify(JSON.parse(coverageResult.content[0].text), null, 2));
-      
-      // Assert
-      expect(coverageResult.content[0].text).toContain('coverage');
-      expect(mockSpawn).toHaveBeenCalled();
-    });
 
+      // Assert
+      const parsed = JSON.parse(coverageResult.content[0].text);
+      expect(parsed.success).toBe(true);
+      expect(parsed.coverage.lines).toBe(100);
+      expect(runVitest).toHaveBeenCalledWith(
+        mockVitest,
+        expect.objectContaining({ args: expect.arrayContaining(['related', 'src/file.ts', '--run']) })
+      );
+    });
     it('should maintain project context across tool executions', async () => {
       // Arrange
       const mockProjectPath = '/test/project';
@@ -301,64 +270,20 @@ describe('Integration Tests', () => {
         return path === mockProjectPath || path.includes('package.json') || path.includes('/src') || path.includes('/tests/');
       });
       vi.mocked(isDirectory).mockImplementation(async (path: string) => {
-        return path === mockProjectPath || path.includes('/src') || path.includes('/tests/');
+        return path === mockProjectPath || path.endsWith('/src');
       });
-      vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify({ name: 'test-project' }));
-      
-      const mockSpawn = vi.fn().mockImplementation((cmd, args) => {
-        const isCoverage = args.includes('--coverage');
-        
-        const mockProcess = {
-          stdout: { 
-            on: vi.fn((event, callback) => {
-              if (event === 'data') {
-                if (isCoverage) {
-                  // analyze_coverage call - return JSON coverage data
-                  const jsonOutput = JSON.stringify({
-                    coverageMap: {
-                      '/test/project/src/file.ts': {
-                        path: '/test/project/src/file.ts',
-                        statementMap: { '0': { start: { line: 1 } } },
-                        fnMap: { '0': { name: 'test', decl: { start: { line: 1 } } } },
-                        branchMap: { '0': { loc: { start: { line: 1 } } } },
-                        s: { '0': 1 },
-                        f: { '0': 1 },
-                        b: { '0': [1, 0] }
-                      }
-                    }
-                  });
-                  setTimeout(() => callback(Buffer.from(jsonOutput)), 10);
-                } else {
-                  // run_tests call
-                  setTimeout(() => callback(Buffer.from('PASS  tests/test1.test.ts\n✓ test 1')), 10);
-                }
-              }
-            })
-          },
-          stderr: { 
-            on: vi.fn((event, callback) => {
-              if (event === 'data') {
-                setTimeout(() => callback(Buffer.from('')), 10);
-              }
-            })
-          },
-          on: vi.fn((event, callback) => {
-            if (event === 'close') {
-              setTimeout(() => callback(0), 50);
-            }
-          })
-        };
-        return mockProcess;
-      });
-      vi.mocked(spawn).mockImplementation(mockSpawn);
-      
+      mockCoverageRun();
+
       // Act
       await toolRegistry.execute('set_project_root', { path: mockProjectPath });
       await toolRegistry.execute('run_tests', { target: './tests/test1.test.ts' });
       await toolRegistry.execute('analyze_coverage', { target: './src' });
-      
+
       // Assert - Both tools should use the same project context
-      expect(mockSpawn).toHaveBeenCalledTimes(2);
+      expect(runVitest).toHaveBeenCalledTimes(2);
+      for (const call of vi.mocked(runVitest).mock.calls) {
+        expect(call[1].cwd).toBe(mockProjectPath);
+      }
       expect(projectContext.hasProjectRoot()).toBe(true);
     });
   });
@@ -389,75 +314,24 @@ describe('Integration Tests', () => {
         return path === mockProjectPath || path.includes('package.json') || path.includes('/src') || path.includes('/tests/');
       });
       vi.mocked(isDirectory).mockImplementation(async (path: string) => {
-        return path === mockProjectPath || path.includes('/src') || path.includes('/tests/');
+        return path === mockProjectPath || path.endsWith('/src');
       });
-      vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify({ name: 'test-project' }));
-      
-      // Mock spawn to fail for run_tests but succeed for analyze_coverage
-      let callCount = 0;
-      const mockSpawn = vi.fn().mockImplementation((cmd, args) => {
-        callCount++;
-        const isCoverage = args.includes('--coverage');
-        
-        const mockProcess = {
-          stdout: { 
-            on: vi.fn((event, callback) => {
-              if (event === 'data') {
-                if (isCoverage) {
-                  // Second call (analyze_coverage) - simulate success with JSON
-                  const jsonOutput = JSON.stringify({
-                    coverageMap: {
-                      '/test/project/src/file.ts': {
-                        path: '/test/project/src/file.ts',
-                        statementMap: { '0': { start: { line: 1 } } },
-                        fnMap: { '0': { name: 'test', decl: { start: { line: 1 } } } },
-                        branchMap: { '0': { loc: { start: { line: 1 } } } },
-                        s: { '0': 1 },
-                        f: { '0': 1 },
-                        b: { '0': [1, 0] }
-                      }
-                    }
-                  });
-                  setTimeout(() => callback(Buffer.from(jsonOutput)), 10);
-                } else {
-                  // First call (run_tests) - simulate failure
-                  setTimeout(() => callback(Buffer.from('Error output')), 10);
-                }
-              }
-            })
-          },
-          stderr: { 
-            on: vi.fn((event, callback) => {
-              if (event === 'data') {
-                setTimeout(() => callback(Buffer.from(callCount === 1 ? 'Test failed' : '')), 10);
-              }
-            })
-          },
-          on: vi.fn((event, callback) => {
-            if (event === 'close') {
-              // First call fails, second succeeds
-              setTimeout(() => callback(callCount === 1 ? 1 : 0), 50);
-            }
-          })
-        };
-        return mockProcess;
-      });
-      vi.mocked(spawn).mockImplementation(mockSpawn);
-      
+      mockCoverageRun();
+      vi.mocked(runVitest).mockResolvedValueOnce({ stdout: '', stderr: 'Test failed', exitCode: 1, timedOut: false });
+
       // Act
       await toolRegistry.execute('set_project_root', { path: mockProjectPath });
-      
-      const runResult = await toolRegistry.execute('run_tests', { target: './tests/test1.test.ts' });
-      // First call should fail (exit code 1), so we expect failure indicators
-      expect(runResult.content[0].text).toContain('false'); // success: false
-      
-      const coverageResult = await toolRegistry.execute('analyze_coverage', { target: './src' });
-      expect(coverageResult.content[0].text).toContain('coverage');
-      
-      // Assert
-      expect(mockSpawn).toHaveBeenCalledTimes(2);
-    });
 
+      const runResult = await toolRegistry.execute('run_tests', { target: './tests/test1.test.ts' });
+      // First call fails (exit code 1)
+      expect(JSON.parse(runResult.content[0].text).success).toBe(false);
+
+      const coverageResult = await toolRegistry.execute('analyze_coverage', { target: './src' });
+      expect(JSON.parse(coverageResult.content[0].text).success).toBe(true);
+
+      // Assert
+      expect(runVitest).toHaveBeenCalledTimes(2);
+    });
     it('should provide meaningful error context in workflows', async () => {
       // Arrange
       vi.mocked(fileExists).mockResolvedValue(false);
@@ -756,170 +630,6 @@ describe('Integration Tests', () => {
       expect(registry1).toBeDefined();
       expect(registry2).toBeDefined();
       expect(vi.mocked(getConfig)).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  describe('Process Management', () => {
-    it('should spawn and manage vitest processes correctly', async () => {
-      // Arrange
-      const mockProjectPath = '/test/project';
-      vi.mocked(fileExists).mockImplementation(async (path: string) => {
-        return path === mockProjectPath || path.includes('package.json') || path.includes('/tests/');
-      });
-      vi.mocked(isDirectory).mockImplementation(async (path: string) => {
-        return path === mockProjectPath || path.includes('/tests/');
-      });
-      vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify({ name: 'test-project' }));
-      
-      const stdoutOnSpy = vi.fn();
-      const stderrOnSpy = vi.fn();
-      const processOnSpy = vi.fn();
-      
-      const mockProcess = {
-        stdout: { 
-          on: stdoutOnSpy.mockImplementation((event, callback) => {
-            if (event === 'data') {
-              // Simulate test output
-              setTimeout(() => callback(Buffer.from('PASS  tests/test1.test.ts\n✓ test 1')), 10);
-            }
-          })
-        },
-        stderr: { 
-          on: stderrOnSpy.mockImplementation((event, callback) => {
-            if (event === 'data') {
-              setTimeout(() => callback(Buffer.from('')), 10);
-            }
-          })
-        },
-        on: processOnSpy.mockImplementation((event, callback) => {
-          if (event === 'close') {
-            setTimeout(() => callback(0), 50);
-          }
-        }),
-        pid: 12345
-      };
-      vi.mocked(spawn).mockReturnValue(mockProcess as any);
-      
-      // Act
-      await toolRegistry.execute('set_project_root', { path: mockProjectPath });
-      await toolRegistry.execute('run_tests', { target: './tests/test1.test.ts' });
-      
-      // Assert
-      expect(stdoutOnSpy).toHaveBeenCalledWith('data', expect.any(Function));
-      expect(stderrOnSpy).toHaveBeenCalledWith('data', expect.any(Function));
-      expect(processOnSpy).toHaveBeenCalledWith('close', expect.any(Function));
-    });
-
-    it('should handle process timeouts and cleanup', async () => {
-      // Arrange
-      const mockProjectPath = '/test/project';
-      vi.mocked(fileExists).mockImplementation(async (path: string) => {
-        return path === mockProjectPath || path.includes('package.json');
-      });
-      vi.mocked(isDirectory).mockImplementation(async (path: string) => {
-        return path === mockProjectPath;
-      });
-      vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify({ name: 'test-project' }));
-      
-      const mockProcess = {
-        stdout: { 
-          on: vi.fn((_event, _callback) => {
-            if (_event === 'data') {
-              // Don't provide data to simulate timeout
-            }
-          })
-        },
-        stderr: { 
-          on: vi.fn((_event, _callback) => {
-            if (_event === 'data') {
-              // Don't provide data to simulate timeout
-            }
-          })
-        },
-        on: vi.fn((_event, _callback) => {
-          // Simulate timeout - never call close callback
-          // This will cause the process to timeout and be killed
-        }),
-        kill: vi.fn(),
-        pid: 12345
-      };
-      vi.mocked(spawn).mockReturnValue(mockProcess as any);
-      
-      // Mock global setTimeout to control timing
-      const originalSetTimeout = global.setTimeout;
-      vi.spyOn(global, 'setTimeout').mockImplementation((callback: any, delay: number) => {
-        // For timeouts, call them immediately to simulate timeout
-        if (delay >= 30000) {
-          callback();
-          return {} as any;
-        }
-        // For other timeouts, use original behavior
-        return originalSetTimeout(callback, delay);
-      });
-      
-      // Act
-      await toolRegistry.execute('set_project_root', { path: mockProjectPath });
-      const result = await toolRegistry.execute('run_tests', { target: './tests/test1.test.ts' });
-      
-      // Assert - Should handle timeout gracefully  
-      const resultText = result.content[0].text;
-      expect(resultText).toMatch(/timeout|error|false/i);
-      
-      // Restore setTimeout
-      vi.restoreAllMocks();
-    });
-
-    it('should capture and process all output streams', async () => {
-      // Arrange
-      const mockProjectPath = '/test/project';
-      vi.mocked(fileExists).mockImplementation(async (path: string) => {
-        return path === mockProjectPath || path.includes('package.json') || path.includes('/tests/');
-      });
-      vi.mocked(isDirectory).mockImplementation(async (path: string) => {
-        return path === mockProjectPath || path.includes('/tests/');
-      });
-      vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify({ name: 'test-project' }));
-      
-      const stdoutCallbacks: any[] = [];
-      const stderrCallbacks: any[] = [];
-      
-      const stdoutOnSpy = vi.fn();
-      const stderrOnSpy = vi.fn();
-      
-      const mockProcess = {
-        stdout: { 
-          on: stdoutOnSpy.mockImplementation((event, callback) => {
-            if (event === 'data') {
-              stdoutCallbacks.push(callback);
-              setTimeout(() => callback(Buffer.from('Test output')), 10);
-            }
-          })
-        },
-        stderr: { 
-          on: stderrOnSpy.mockImplementation((event, callback) => {
-            if (event === 'data') {
-              stderrCallbacks.push(callback);
-              setTimeout(() => callback(Buffer.from('Test error')), 10);
-            }
-          })
-        },
-        on: vi.fn((event, callback) => {
-          if (event === 'close') {
-            setTimeout(() => callback(0), 50);
-          }
-        })
-      };
-      vi.mocked(spawn).mockReturnValue(mockProcess as any);
-      
-      // Act
-      await toolRegistry.execute('set_project_root', { path: mockProjectPath });
-      await toolRegistry.execute('run_tests', { target: './tests/test1.test.ts' });
-      
-      // Assert
-      expect(stdoutOnSpy).toHaveBeenCalledWith('data', expect.any(Function));
-      expect(stderrOnSpy).toHaveBeenCalledWith('data', expect.any(Function));
-      expect(stdoutCallbacks.length).toBeGreaterThan(0);
-      expect(stderrCallbacks.length).toBeGreaterThan(0);
     });
   });
 });

@@ -22,6 +22,7 @@ export default [
         Buffer: 'readonly',
         global: 'readonly',
         performance: 'readonly',
+        URL: 'readonly',
         NodeJS: 'readonly',
         require: 'readonly',
       },

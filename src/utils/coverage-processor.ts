@@ -4,6 +4,7 @@ import {
 } from "../types/coverage-types.js";
 import { getVitestCoverageThresholds, checkThresholdsMet, getThresholdViolations } from './vitest-config-reader.js';
 import { projectContext } from '../context/project-context.js';
+import { relative, sep } from 'path';
 
 // Coverage file data interface
 interface CoverageFileData {
@@ -40,6 +41,45 @@ interface FileBreakdownItem {
 
 export interface CoverageProcessingOptions {
   target: string;
+}
+
+interface StatementLocation {
+  start?: { line?: number };
+}
+
+/**
+ * Hit count per source line, derived the same way istanbul does: a line's count is
+ * the highest count of any statement starting on it.
+ */
+export function computeLineHits(fileData: {
+  s?: Record<string, number>;
+  statementMap?: Record<string, unknown>;
+}): Map<number, number> {
+  const hits = new Map<number, number>();
+  const statementMap = (fileData.statementMap || {}) as Record<string, StatementLocation>;
+
+  for (const [id, count] of Object.entries(fileData.s || {})) {
+    const line = statementMap[id]?.start?.line;
+    if (!line) continue;
+    hits.set(line, Math.max(hits.get(line) ?? 0, count));
+  }
+
+  return hits;
+}
+
+/**
+ * Display path for a covered file: relative to the project root when possible
+ */
+function displayPath(filePath: string): string {
+  try {
+    const rel = relative(projectContext.getProjectRoot(), filePath);
+    if (rel && !rel.startsWith('..')) {
+      return rel.split(sep).join('/');
+    }
+  } catch {
+    // No project root set
+  }
+  return filePath;
 }
 
 /**
@@ -83,7 +123,7 @@ export async function processCoverageData(
     };
 
     const fileEntries = Object.entries(rawData.files);
-    const targetFile = fileEntries.length === 1 ? fileEntries[0][0] : undefined;
+    const targetFile = fileEntries.length === 1 ? displayPath(fileEntries[0][0]) : undefined;
 
     const totals = extractTotals(rawData.summary);
 
@@ -134,7 +174,7 @@ export async function processCoverageData(
       for (const [filePath, fileData] of fileEntries) {
         const fileStats = calculateFileStats(fileData);
         fileBreakdown.push({
-          path: filePath,
+          path: displayPath(filePath),
           coverage: {
             lines: fileStats.lines.pct,
             functions: fileStats.functions.pct,
@@ -190,6 +230,10 @@ function calculateFileStats(fileData: CoverageFileData): {
   const stmtTotal = statements.length;
   const stmtCovered = statements.filter((count) => count > 0).length;
 
+  const lineCounts = [...computeLineHits(fileData).values()];
+  const lineTotal = lineCounts.length;
+  const lineCovered = lineCounts.filter((count) => count > 0).length;
+
   const functions = Object.values(fileData.f || {}) as number[];
   const fnTotal = functions.length;
   const fnCovered = functions.filter((count) => count > 0).length;
@@ -200,9 +244,9 @@ function calculateFileStats(fileData: CoverageFileData): {
 
   return {
     lines: {
-      total: stmtTotal,
-      covered: stmtCovered,
-      pct: stmtTotal > 0 ? Math.round((stmtCovered / stmtTotal) * 100) : 0,
+      total: lineTotal,
+      covered: lineCovered,
+      pct: lineTotal > 0 ? Math.round((lineCovered / lineTotal) * 100) : 0,
     },
     functions: {
       total: fnTotal,
@@ -251,7 +295,7 @@ async function extractUncoveredItems(
 
   for (const [filePath, fileData] of Object.entries(files)) {
     try {
-      const fileName = filePath.split("/").pop() || filePath;
+      const fileName = displayPath(filePath);
 
       const fileUncovered = {
         lines: [] as number[],
@@ -259,16 +303,9 @@ async function extractUncoveredItems(
         branches: [] as number[],
       };
 
-      const statementMap = fileData.statementMap || {};
-      const statements = fileData.s || {};
-
-      for (const [stmtId, count] of Object.entries(statements)) {
-        if ((count as number) === 0 && statementMap[stmtId]) {
-          const stmt = statementMap[stmtId];
-          const lineNum = stmt.start?.line || 0;
-          if (lineNum > 0) {
-            fileUncovered.lines.push(lineNum);
-          }
+      for (const [lineNum, count] of computeLineHits(fileData)) {
+        if (count === 0) {
+          fileUncovered.lines.push(lineNum);
         }
       }
 

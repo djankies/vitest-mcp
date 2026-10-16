@@ -109,12 +109,14 @@ export interface CoverageAnalysisResult {
     };
   }>;
   thresholdViolations?: string[];  // Optional - only present if thresholds are violated
+  testsRun?: number;  // Number of tests Vitest ran to measure the target's coverage
 }
 
 export interface AnalyzeCoverageArgs {
   target: string;
   format?: 'summary' | 'detailed';
   exclude?: string[];
+  project?: string;
 }
 
 interface StatementMapping {
