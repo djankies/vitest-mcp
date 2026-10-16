@@ -5,6 +5,12 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    # Conventional commit prefixes drive semantic-release: runtime dependency
+    # updates ship as a patch release, dev dependency updates release nothing.
+    commit-message:
+      prefix: "fix"
+      prefix-development: "chore"
+      include: "scope"
     groups:
       # One PR for routine updates instead of one per package
       npm-minor-and-patch:
@@ -18,6 +24,8 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    commit-message:
+      prefix: "ci"
     groups:
       github-actions:
         patterns: ["*"]
