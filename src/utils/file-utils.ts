@@ -1,5 +1,5 @@
 import { promises as fs } from 'fs';
-import { join, relative, resolve } from 'path';
+import { join, relative, resolve, sep } from 'path';
 
 /**
  * Basic file utilities for the Vitest MCP server
@@ -53,7 +53,8 @@ export async function findTestFiles(searchPath: string = process.cwd()): Promise
         if (entry.isDirectory() && !['node_modules', 'dist', 'build', '.git'].includes(entry.name)) {
           await scanDirectory(fullPath);
         } else if (entry.isFile() && isTestFile(entry.name)) {
-          const relativePath = relative(absoluteSearchPath, fullPath);
+          // Forward slashes on every platform, like the other tools' output
+          const relativePath = relative(absoluteSearchPath, fullPath).split(sep).join('/');
           testFiles.push({
             path: fullPath,
             relativePath,

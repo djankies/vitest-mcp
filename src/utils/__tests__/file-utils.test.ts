@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { promises as fs } from 'fs';
 import type { Stats } from 'fs';
-import { join, resolve } from 'path';
+import { resolve } from 'path';
 
 // Mock Dirent interface for testing
 interface MockDirent {
@@ -108,8 +108,8 @@ describe('file-utils', () => {
       expect(result).toHaveLength(4);
       expect(result[0].relativePath).toBe('file.spec.js');
       expect(result[1].relativePath).toBe('file.test.ts');
-      expect(result[2].relativePath).toBe(join('src', '__tests__', 'unit.test.js'));
-      expect(result[3].relativePath).toBe(join('src', 'component.test.tsx'));
+      expect(result[2].relativePath).toBe('src/__tests__/unit.test.js');
+      expect(result[3].relativePath).toBe('src/component.test.tsx');
     });
 
     it('should match the same extensions as Vitest\'s default include', async () => {
