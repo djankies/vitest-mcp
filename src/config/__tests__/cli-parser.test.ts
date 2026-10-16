@@ -112,22 +112,6 @@ describe('cli-parser', () => {
       });
     });
 
-    it.skip('should parse threshold arguments', async () => {
-      // Arrange
-      const args = ['--threshold', '90'];
-      
-      // Act
-      const result = await parseCliArgs(args);
-      
-      // Assert
-      expect(result).toEqual({
-        coverageDefaults: {
-          threshold: 90,
-          thresholdsExplicitlySet: true
-        }
-      });
-    });
-
     it('should parse coverage format arguments', async () => {
       // Arrange
       const args = ['--coverage-format', 'detailed'];
@@ -139,25 +123,6 @@ describe('cli-parser', () => {
       expect(result).toEqual({
         coverageDefaults: {
           format: 'detailed'
-        }
-      });
-    });
-
-    it.skip('should parse specific coverage thresholds', async () => {
-      // Arrange
-      const args = ['--coverage-threshold-lines', '85', '--coverage-threshold-branches', '75'];
-      
-      // Act
-      const result = await parseCliArgs(args);
-      
-      // Assert
-      expect(result).toEqual({
-        coverageDefaults: {
-          thresholds: {
-            lines: 85,
-            branches: 75
-          },
-          thresholdsExplicitlySet: true
         }
       });
     });

@@ -74,13 +74,8 @@ export async function findTestFiles(searchPath: string = process.cwd()): Promise
  * Check if a filename is a test file
  */
 function isTestFile(filename: string): boolean {
-  const testPatterns = [
-    /\.test\.(js|ts|jsx|tsx)$/,
-    /\.spec\.(js|ts|jsx|tsx)$/,
-    /__tests__\/.*\.(js|ts|jsx|tsx)$/
-  ];
-  
-  return testPatterns.some(pattern => pattern.test(filename));
+  // Same extensions as Vitest's default include: **/*.{test,spec}.?(c|m)[jt]s?(x)
+  return /\.(test|spec)\.[cm]?[jt]sx?$/.test(filename);
 }
 
 /**

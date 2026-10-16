@@ -1,5 +1,5 @@
 import { fileExists, isDirectory } from "../utils/file-utils.js";
-import { join } from "path";
+import { isAbsolute, join } from "path";
 import { hasVitestConfig } from "../utils/config-finder.js";
 
 /**
@@ -15,7 +15,7 @@ class ProjectContextManager {
    * @param absolutePath - Must be an absolute path to a valid project directory
    */
   async setProjectRoot(absolutePath: string): Promise<void> {
-    if (!absolutePath.startsWith("/") && !absolutePath.match(/^[A-Z]:\\/)) {
+    if (!isAbsolute(absolutePath)) {
       throw new Error(
         "Project root must be an absolute path (starting with / on Unix or drive letter on Windows)"
       );

@@ -2,51 +2,89 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
+    name: Test (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
-    
+
     strategy:
+      fail-fast: false
       matrix:
-        node-version: [18, 20, 22]
-        
+        node-version: [22, 24, 26]
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
-        
+        uses: actions/checkout@v5
+
       - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm'
-          
+          cache: npm
+
       - name: Install dependencies
         run: npm ci
-        
-      - name: Run linting
-        run: npm run lint || true
-        
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
       - name: Run tests
         run: npm test
-        
+
       - name: Build package
         run: npm run build
-        
+
       - name: Test package installation
         run: |
           npm pack
-          PACKAGE_PATH=$(pwd)
-          PACKAGE_FILE=$(ls *.tgz | head -1)
-          mkdir -p /tmp/test-install
-          cd /tmp/test-install
-          npm init -y
-          npm install $PACKAGE_PATH/$PACKAGE_FILE
-          
-      - name: Verify package works
-        run: |
-          cd /tmp/test-install
-          timeout 5s npx @djankies/vitest-mcp --help || echo "Package works correctly"
+          PACKAGE_FILE=$(ls "$PWD"/*.tgz | head -1)
+          mkdir -p "$RUNNER_TEMP/test-install"
+          cd "$RUNNER_TEMP/test-install"
+          npm init -y >/dev/null
+          npm install "$PACKAGE_FILE"
+          npx vitest-mcp --help
+
+  compat:
+    # Drives the built tools against real Vitest installs (see compat/run-compat.mjs)
+    name: Vitest ${{ matrix.vitest }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        vitest: [3, 4, 5]
+        include:
+          - os: windows-latest
+            vitest: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run compatibility suite
+        shell: bash
+        run: npm run test:compat -- ${{ matrix.vitest }}

@@ -112,6 +112,20 @@ describe('file-utils', () => {
       expect(result[3].relativePath).toBe(join('src', 'component.test.tsx'));
     });
 
+    it('should match the same extensions as Vitest\'s default include', async () => {
+      vi.mocked(fs.readdir).mockResolvedValueOnce([
+        { name: 'a.test.mts', isDirectory: () => false, isFile: () => true },
+        { name: 'b.spec.cjs', isDirectory: () => false, isFile: () => true },
+        { name: 'c.test.jsx', isDirectory: () => false, isFile: () => true },
+        { name: 'd.test.md', isDirectory: () => false, isFile: () => true },
+        { name: 'e.testing.ts', isDirectory: () => false, isFile: () => true }
+      ] as MockDirent[]);
+
+      const result = await findTestFiles('/project');
+
+      expect(result.map((f) => f.relativePath)).toEqual(['a.test.mts', 'b.spec.cjs', 'c.test.jsx']);
+    });
+
     it('should determine test types correctly', async () => {
       const mockEntries = [
         { name: 'unit.test.ts', isDirectory: () => false, isFile: () => true },

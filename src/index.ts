@@ -3,9 +3,12 @@
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { readFile } from "fs/promises";
+import { createRequire } from "module";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+// package.json sits one level above both src/ and dist/
+const { version: SERVER_VERSION } = createRequire(import.meta.url)("../package.json") as { version: string };
 
 // Only load dotenv in development mode
 if (process.env.VITEST_MCP_DEV_MODE === "true") {
@@ -29,7 +32,6 @@ import {
 import { createStandardToolRegistry } from "./plugins/index.js";
 import type { IToolRegistry } from "./plugins/plugin-interface.js";
 import { getConfig } from "./config/config-loader.js";
-import { ResolvedVitestMCPConfig } from "./types/config-types.js";
 
 /**
  * Vitest MCP Server
@@ -43,7 +45,7 @@ export class VitestMCPServer {
     this.server = new Server(
       {
         name: "vitest-mcp",
-        version: "0.2.0",
+        version: SERVER_VERSION,
       },
       {
         capabilities: {
@@ -73,21 +75,8 @@ export class VitestMCPServer {
 
   private setupHandlers() {
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
-      const config = await getConfig();
-      const tools = this.toolRegistry.getTools();
-      
-      const updatedTools = tools.map(tool => {
-        if (tool.name === 'analyze_coverage') {
-          return {
-            ...tool,
-            description: this.buildCoverageToolDescription(config),
-          };
-        }
-        return tool;
-      });
-
       return {
-        tools: updatedTools,
+        tools: this.toolRegistry.getTools(),
       };
     });
 
@@ -162,19 +151,13 @@ export class VitestMCPServer {
     return "An unexpected error occurred. Enable debug mode with VITEST_MCP_DEBUG=true for more details.";
   }
 
-  private buildCoverageToolDescription(
-    _config: ResolvedVitestMCPConfig
-  ): string {
-    return `Perform comprehensive test coverage analysis with line-by-line gap identification, actionable insights, and detailed metrics for lines, functions, branches, and statements. Automatically excludes common non-production files (stories, mocks, e2e tests) and provides recommendations for improving coverage. Detects and prevents analysis on test files themselves. Requires set_project_root to be called first. Coverage thresholds are configured via vitest.config.ts.\n\nUSE WHEN: User wants to check test coverage, identify untested code, improve test coverage, asks "what's not tested", "coverage report", "how well tested", or mentions coverage/testing quality. Essential when "vitest-mcp:" prefix is used with coverage-related requests. Prefer this over raw vitest coverage commands for actionable insights.`;
-  }
-
   async run() {
     try {
       const config = await getConfig();
 
       if (config.server.verbose || process.env.VITEST_MCP_DEBUG) {
         console.error("[MCP] Starting Vitest MCP Server...");
-        console.error("[MCP] Version: 0.2.0");
+        console.error("[MCP] Version:", SERVER_VERSION);
         console.error("[MCP] Node version:", process.version);
         console.error("[MCP] Working directory:", process.cwd());
       }

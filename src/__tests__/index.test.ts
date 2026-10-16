@@ -1,4 +1,5 @@
 import { describe, it, vi, beforeEach, afterEach, expect } from 'vitest';
+import { readFileSync } from 'fs';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
@@ -28,11 +29,11 @@ describe('VitestMCPServer', () => {
       setRequestHandler: vi.fn(),
       connect: vi.fn()
     };
-    vi.mocked(Server).mockReturnValue(mockServer);
+    vi.mocked(Server).mockImplementation(function () { return mockServer; } as never);
     
     // Setup mock transport
     mockTransport = {};
-    vi.mocked(StdioServerTransport).mockReturnValue(mockTransport);
+    vi.mocked(StdioServerTransport).mockImplementation(function () { return mockTransport; } as never);
   });
 
   afterEach(() => {
@@ -61,7 +62,7 @@ describe('VitestMCPServer', () => {
       
       expect(Server).toHaveBeenCalledWith({
         name: 'vitest-mcp',
-        version: '0.2.0'
+        version: JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf-8')).version
       }, {
         capabilities: {
           tools: {},

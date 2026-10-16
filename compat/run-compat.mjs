@@ -51,12 +51,14 @@ function setupFixture(name) {
   };
   writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
   const installArgs = ["install", "--no-audit", "--no-fund", "--loglevel=error"];
+  // npm/npx are .cmd shims on Windows and need a shell; the arguments are constants.
+  const options = { cwd: target, stdio: "inherit", shell: process.platform === "win32" };
   try {
-    execFileSync("npm", installArgs, { cwd: target, stdio: "inherit" });
+    execFileSync("npm", installArgs, options);
   } catch {
     // npm 10 crashes ("reading 'edgesOut'") resolving Vitest 4's optional peers; npm 11 does not.
     console.log("npm install failed, retrying with npm@11");
-    execFileSync("npx", ["-y", "npm@11", ...installArgs], { cwd: target, stdio: "inherit" });
+    execFileSync("npx", ["-y", "npm@11", ...installArgs], options);
   }
   return target;
 }

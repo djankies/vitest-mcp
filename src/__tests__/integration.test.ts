@@ -101,11 +101,11 @@ describe('Integration Tests', () => {
       setRequestHandler: vi.fn(),
       connect: vi.fn().mockResolvedValue(undefined)
     };
-    vi.mocked(Server).mockReturnValue(mockServer);
+    vi.mocked(Server).mockImplementation(function () { return mockServer; } as never);
     
     // Setup mock transport
     mockTransport = {};
-    vi.mocked(StdioServerTransport).mockReturnValue(mockTransport);
+    vi.mocked(StdioServerTransport).mockImplementation(function () { return mockTransport; } as never);
     
     // Setup mock config
     vi.mocked(getConfig).mockResolvedValue({

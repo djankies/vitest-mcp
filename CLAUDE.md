@@ -48,8 +48,8 @@ This bypasses the self-protection check that normally prevents the MCP server fr
 - **IMPORTANT**: Always use the project's own MCP tools for testing, not raw vitest commands
 - `set_project_root({ path: "/absolute/path/to/project" })` - Required first step
 - `run_tests({ target: "./src/components", format: "detailed" })` - Run specific tests
-- `analyze_coverage({ target: "./src", threshold: 80 })` - Coverage analysis
-- `list_tests({ directory: "./src" })` - Find test files
+- `analyze_coverage({ target: "./src" })` - Coverage analysis (thresholds come from the Vitest config)
+- `list_tests({ path: "./src" })` - Find test files
 
 ### Single Test Execution
 
@@ -88,10 +88,16 @@ run_tests({
 
 **Processing Layer (`src/utils/`)**
 
-- `output-processor.ts` - Converts raw Vitest output to structured format
+- `vitest-runner.ts` - Finds the project's own Vitest install and runs it with `node` (never a shell or npx)
+- `target-utils.ts` - Validates targets and project names before they become CLI arguments
+- `output-processor.ts` - Converts Vitest's JSON report to structured format
 - `coverage-processor.ts` - Processes coverage data for analysis
 - `file-utils.ts` - File system utilities with safety checks
 - `version-checker.ts` - Vitest compatibility validation
+
+**Reporters (`src/reporters/`)**
+
+- `console-reporter.ts` - Loaded by Vitest (not the server) to capture console output for `showLogs`
 
 **Type System (`src/types/`)**
 
@@ -152,13 +158,13 @@ The server maintains project context through `src/context/project-context.ts`:
 
 ### Testing Strategy
 
-- Tests located in `src/__tests__/` and `src/tools/__tests__/`
-- Uses same Vitest configuration as projects it serves
-- Coverage configured with v8 provider and HTML reports
+- Unit tests are in `__tests__/` folders under `src/`; Vitest itself is mocked there
+- `compat/run-compat.mjs` is the end-to-end suite: it installs a given Vitest major into the fixture projects in `compat/fixtures/` and drives the built tools against them. Run `npm run test:compat -- 4` (any of 3, 4, 5). CI runs all three
+- Any change to how Vitest is invoked or how its output is read must pass the compat suite on every supported major
 
 ### Build Process
 
-- TypeScript compilation to `dist/` folder
+- TypeScript compilation to `dist/` folder, then `scripts/postbuild.mjs` (cross-platform)
 - Executable shebang added to main entry point
 - Package published to npm with binary entry point
 
@@ -170,6 +176,7 @@ The server maintains project context through `src/context/project-context.ts`:
 
 ### Version Compatibility
 
-- Requires Node.js 18+ and Vitest 0.34.0+
-- Peer dependency on Vitest ensures compatibility
-- Runtime version checking prevents execution with incompatible versions
+- Requires Node.js 22.12+; supports Vitest 3.x, 4.x and 5.x
+- Vitest is an optional peer dependency: the server always uses the project's own install
+- Runtime version checking reports missing Vitest, untested majors and mismatched coverage providers
+- Known differences between majors: Vitest 5 writes the JSON report to a file instead of stdout (always pass `--outputFile.json`); Vitest 4 dropped `coverage.all` (pass `--coverage.include` to report untested files); `vitest.workspace` files were replaced by `projects` in 3.2

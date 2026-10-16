@@ -38,6 +38,13 @@ export default [
     },
   },
   {
-    ignores: ['dist/**', 'node_modules/**'],
+    // Mocks in tests routinely need loose typing
+    files: ['**/__tests__/**/*.ts', '**/*.test.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+    },
+  },
+  {
+    ignores: ['dist/**', 'node_modules/**', 'compat/**', 'test-validation/**'],
   },
 ];
