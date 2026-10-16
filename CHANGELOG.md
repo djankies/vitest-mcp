@@ -1,18 +1,16 @@
 # Changelog
 
-All notable changes to the Vitest MCP Server will be documented in this file.
+All notable changes to the Vitest MCP Server are documented in this file.
+It is generated from [Conventional Commits](https://www.conventionalcommits.org/) by [semantic-release](https://github.com/semantic-release/semantic-release) on every release.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.6.0](https://github.com/djankies/vitest-mcp/compare/v0.5.1...v0.6.0) (2026-10-16)
 
-## [Unreleased]
-
-### Breaking
+### ⚠ BREAKING CHANGES
 
 - Requires Node.js 22.12 or newer (Node 18 and 20 are end-of-life)
 - Vitest is now an optional peer dependency (`^3 || ^4 || ^5`); the server always uses the project's own Vitest and no longer falls back to `npx`, so Vitest must be installed in the project
 
-### Added
+### Features
 
 - Support for Vitest 3.x, 4.x and 5.x, verified end to end in CI against real installs (`npm run test:compat -- <major>`)
 - `project` parameter for `analyze_coverage`
@@ -20,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `run_tests` reports test files that fail to load and Vitest's own errors (for example an unknown project name) instead of "No tests found"
 - Version check warns when the coverage provider's major version does not match Vitest's, and detects `@vitest/coverage-istanbul`
 
-### Fixed
+### Bug Fixes
 
 - **Security**: Vitest was started through a shell on every platform, so a crafted `project` value could run arbitrary commands. Vitest is now run directly with Node and arguments are validated
 - `run_tests` reported 0 tests on Vitest 5, which no longer prints the JSON report to stdout
@@ -36,9 +34,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Server reported version 0.2.0 regardless of the installed version
 - Windows: `set_project_root` rejected lowercase drive letters and forward-slash paths
 
-### Changed
+## [0.5.1](https://github.com/djankies/vitest-mcp/compare/v0.5.0...v0.5.1) (2025-08-14)
 
-- **BREAKING**: Removed MCP server's ability to set or override coverage thresholds
+### Features
+
+- add summary field to MCP tool responses for better client visibility ([281b541](https://github.com/djankies/vitest-mcp/commit/281b541))
+
+### Bug Fixes
+
+- resolve critical bugs in run_tests and analyze_coverage tools ([5dd3f13](https://github.com/djankies/vitest-mcp/commit/5dd3f13))
+- remove browser mode forcing to prevent conflicts ([09d97af](https://github.com/djankies/vitest-mcp/commit/09d97af))
+
+## [0.5.0](https://github.com/djankies/vitest-mcp/compare/v0.4.11...v0.5.0) (2025-08-14)
+
+### Documentation
+
+- README table of contents fixes, MCP server badge, and corrected download path for the vitest hook script ([1674882](https://github.com/djankies/vitest-mcp/commit/1674882))
+
+## 0.4.6 – 0.4.11 (2025-08-06 – 2025-08-07)
+
+These versions were published while fixing the release pipeline and contain no changes to the server itself.
+
+### Bug Fixes
+
+- restore the `@djankies/vitest-mcp` npm scope ([6f8d510](https://github.com/djankies/vitest-mcp/commit/6f8d510))
+- publish with npm OIDC without the redundant `--provenance` flag ([006ebd9](https://github.com/djankies/vitest-mcp/commit/006ebd9))
+- use the `@latest` tag in release notes ([dab7cd1](https://github.com/djankies/vitest-mcp/commit/dab7cd1))
+
+## [0.4.5](https://github.com/djankies/vitest-mcp/compare/v0.4.4...v0.4.5) (2025-08-06)
+
+### Bug Fixes
+
+- improve main module detection for npx execution ([2b19e7e](https://github.com/djankies/vitest-mcp/commit/2b19e7e))
+
+## [0.4.4](https://github.com/djankies/vitest-mcp/compare/v0.4.2...v0.4.4) (2025-08-06)
+
+### Features
+
+- add GitHub issue and PR templates ([c18b334](https://github.com/djankies/vitest-mcp/commit/c18b334))
+- add beta release workflow with generated release notes ([21bff2b](https://github.com/djankies/vitest-mcp/commit/21bff2b))
+
+### Bug Fixes
+
+- make the dotenv import conditional so the server runs under npx ([859badb](https://github.com/djankies/vitest-mcp/commit/859badb))
+- prevent an environment variable bypass in the vitest hook ([ed5e438](https://github.com/djankies/vitest-mcp/commit/ed5e438))
+- correct beta version handling and npm tag assignment in the release workflow ([471aaed](https://github.com/djankies/vitest-mcp/commit/471aaed))
+
+### Code Refactoring
+
+- remove the redundant `includeDetails` parameter from coverage processing ([c4a11a9](https://github.com/djankies/vitest-mcp/commit/c4a11a9))
+
+## [0.4.2](https://github.com/djankies/vitest-mcp/compare/v0.4.1...v0.4.2) (2025-08-06)
+
+### ⚠ BREAKING CHANGES
+
+- Removed MCP server's ability to set or override coverage thresholds
 - Coverage thresholds are now read exclusively from `vitest.config.ts` files
 - Removed all threshold-related CLI arguments (`--threshold`, `--coverage-threshold-*`)
 - Removed threshold-related environment variables (`VITEST_MCP_COVERAGE_THRESHOLD*`)
@@ -57,7 +107,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Proper handling of projects that don't specify coverage thresholds
 - Updated all documentation to reflect that thresholds should be configured in `vitest.config.ts`
 
-## [0.4.1] - 2024-12-06
+## [0.4.1](https://github.com/djankies/vitest-mcp/compare/v0.3.0...v0.4.1) (2025-08-06)
 
 ### Fixed
 
@@ -66,7 +116,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hook now parses package.json to detect vitest-based scripts
 - Improved bypass flag (`--bypass-hook`) flexibility - works in multiple positions
 
-## [0.4.0] - 2024-12-06
+## 0.4.0 (2025-08-06)
 
 ### Added
 
@@ -91,7 +141,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added configuration priority documentation to README
 - Added example of MCP-specific configuration usage
 
-## [0.3.0] - 2024-01-XX
+## [0.3.0](https://github.com/djankies/vitest-mcp/compare/v0.2.3...v0.3.0) (2025-08-06)
 
 ### Added
 
@@ -107,7 +157,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved error handling with user-friendly hints
 - Enhanced structured JSON output for AI consumption
 
-## [0.2.0] - Previous Release
+## 0.2.0 (2025-08-05)
 
 ### Added
 
