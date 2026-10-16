@@ -15,7 +15,7 @@ This is a Model Context Protocol (MCP) server that provides AI-optimized Vitest 
 - `npm start` - Run the compiled MCP server
 - `npm run lint` - Run ESLint on TypeScript source files
 - `npm test` - Run the project's own test suite using Vitest
-- `npm run prepare` - Build before publishing (runs automatically on install)
+- `npm run prepare` - Installs the husky git hooks (runs automatically on install)
 
 ### Development Mode (Self-Testing)
 
@@ -161,6 +161,14 @@ The server maintains project context through `src/context/project-context.ts`:
 - Unit tests are in `__tests__/` folders under `src/`; Vitest itself is mocked there
 - `compat/run-compat.mjs` is the end-to-end suite: it installs a given Vitest major into the fixture projects in `compat/fixtures/` and drives the built tools against them. Run `npm run test:compat -- 4` (any of 3, 4, 5). CI runs all three
 - Any change to how Vitest is invoked or how its output is read must pass the compat suite on every supported major
+
+### Commits and Releases
+
+- Releases are fully automated by semantic-release (`.releaserc.json`, `.github/workflows/publish.yml`): every push to `main` is analyzed, and if it contains releasable commits a new version is tagged, published to npm with provenance, added to `CHANGELOG.md` and released on GitHub
+- **Commit messages decide the version**, so they must follow [Conventional Commits](https://www.conventionalcommits.org/): `fix:` → patch, `feat:` → minor, `feat!:` or a `BREAKING CHANGE:` footer → major. `docs:`, `chore:`, `ci:`, `test:`, `refactor:` and `build:` release nothing
+- commitlint enforces this in the husky `commit-msg` hook and on every pull request in CI
+- Never edit the version in `package.json` or add entries to `CHANGELOG.md` by hand; semantic-release does both
+- Keep `.github/workflows/publish.yml` under that name: npm trusted publishing is bound to it
 
 ### Build Process
 

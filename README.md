@@ -22,6 +22,7 @@
 - [⚙️ Configuration](#⚙️-configuration)
 - [🔍 Development Mode \& Debugging](#🔍-development-mode--debugging)
 - [🔧 Troubleshooting](#🔧-troubleshooting)
+- [🤝 Contributing](#🤝-contributing)
 - [📜 License](#📜-license)
 <!-- markdownlint-enable MD051 -->
 
@@ -521,6 +522,10 @@ VITEST_MCP_DEV_MODE=true
 **Hook issues** - Bypass with: `BYPASS_VITEST_HOOK=1 npm test`
 
 **Found a bug?** Submit a bug report, please, and thank you.
+
+## 🤝 Contributing
+
+Releases are automated with [semantic-release](https://github.com/semantic-release/semantic-release): merging to `main` publishes a new version when it contains `fix:` (patch), `feat:` (minor) or breaking (`feat!:`) commits, and updates the [CHANGELOG](./CHANGELOG.md). Please write commit messages in the [Conventional Commits](https://www.conventionalcommits.org/) format; a commit hook and CI check them.
 
 ## 📜 License
 
