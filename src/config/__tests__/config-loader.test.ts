@@ -129,32 +129,6 @@ describe('config-loader', () => {
       expect(config.testDefaults.format).toBe('detailed');
     });
 
-    it.skip('should load coverage threshold from environment variables', async () => {
-      // Arrange
-      process.env.VITEST_MCP_COVERAGE_THRESHOLD = '90';
-
-      // Act
-      const config = await loadConfiguration([]);
-
-      // Assert
-      expect(config.coverageDefaults.threshold).toBe(90);
-      expect(config.coverageDefaults.thresholdsExplicitlySet).toBe(true);
-    });
-
-    it.skip('should load specific coverage thresholds from environment', async () => {
-      // Arrange
-      process.env.VITEST_MCP_COVERAGE_THRESHOLD_LINES = '85';
-      process.env.VITEST_MCP_COVERAGE_THRESHOLD_BRANCHES = '75';
-
-      // Act
-      const config = await loadConfiguration([]);
-
-      // Assert
-      expect(config.coverageDefaults.thresholds.lines).toBe(85);
-      expect(config.coverageDefaults.thresholds.branches).toBe(75);
-      expect(config.coverageDefaults.thresholdsExplicitlySet).toBe(true);
-    });
-
     it('should load server settings from environment variables', async () => {
       // Arrange
       process.env.VITEST_MCP_VERBOSE = 'true';

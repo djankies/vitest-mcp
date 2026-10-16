@@ -13,11 +13,11 @@ npx vitest [args]
 
 ```javascript
 // Required first, only once per session - absolute path
-set_project_root({ path: "~/Projects/this-project" })
+set_project_root({ path: "/absolute/path/to/this-project" })
 
 // Then use with relative paths
 run_tests({ target: "./src/components" })
-analyze_coverage({ target: "./src", threshold: 80 })
+analyze_coverage({ target: "./src" })
 list_tests({ path: "./src" })
 ```
 

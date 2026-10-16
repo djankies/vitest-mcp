@@ -10,15 +10,15 @@ This MCP server provides tools for interacting with Vitest, a JavaScript/TypeScr
 npm install --save-dev @vitest/coverage-v8
 ```
 
-Add to vitest.config.ts:
+Supported: Vitest 3.x, 4.x and 5.x, with the coverage provider on the same major version.
+
+Optionally add thresholds to vitest.config.ts:
 
 ```typescript
 export default defineConfig({
   test: {
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html'],
-      exclude: ['node_modules/', 'dist/', 'coverage/', '**/*.test.ts', '**/*.spec.ts'],
       // Configure coverage thresholds here, not via MCP server
       thresholds: {
         lines: 80,
@@ -42,9 +42,8 @@ set_project_root({ path: "/absolute/path/to/project" })
 ### list_tests
 
 ```javascript
-list_tests({ 
-  directory: "./src",  // optional
-  pattern: "**/*.spec.ts"  // optional
+list_tests({
+  path: "./src"  // optional, defaults to the project root
 })
 ```
 
@@ -53,7 +52,9 @@ list_tests({
 ```javascript
 run_tests({
   target: "./src/components",  // required
-  format: "detailed"  // optional: "summary" or "detailed"
+  format: "detailed",  // optional: "summary" or "detailed"
+  project: "client",  // optional: Vitest project name
+  showLogs: true  // optional: include console output
 })
 ```
 
@@ -61,12 +62,15 @@ run_tests({
 
 ```javascript
 analyze_coverage({
-  target: "./src/components",  // required
-  format: "detailed"  // optional - "detailed" includes line-by-line coverage
+  target: "./src/components",  // required: source files, not tests
+  format: "detailed",  // optional - "detailed" includes line-by-line coverage
+  project: "unit"  // optional: only use tests from this Vitest project
 })
 ```
 
-> **Note**: Coverage thresholds should be configured in your `vitest.config.ts` file, not via the `threshold` parameter.
+Coverage is measured by running every test that imports the target, wherever the tests live.
+
+> **Note**: Coverage thresholds should be configured in your `vitest.config.ts` file; there is no `threshold` parameter.
 
 ## Best Practices
 
@@ -78,6 +82,7 @@ analyze_coverage({
 ## Troubleshooting
 
 - "Coverage provider not found" → Install @vitest/coverage-v8
-- "No test files found" → Check path and pattern parameters
+- "No test files found" → Check the path parameter
+- "No tests import ..." → No test imports the target; its coverage is 0%
 - "Threshold violations" → Configure thresholds in `vitest.config.ts` or add more tests
-- Timeout errors → Increase timeout parameter
+- Timeout errors → Use a narrower target or raise `testDefaults.timeout` in `.vitest-mcp.json`

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { findVitestConfig, hasVitestConfig } from '../config-finder.js';
+import { findMcpVitestConfig, findVitestConfig, hasVitestConfig } from '../config-finder.js';
 import { fileExists } from '../file-utils.js';
 
 vi.mock('../file-utils.js');
@@ -54,15 +54,24 @@ describe('config-finder', () => {
 
       await findVitestConfig('/project');
 
+      const exts = ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'];
       expect(checkedPaths).toEqual([
-        '/project/vitest.mcp.config.ts',
-        '/project/vitest.config.ts',
-        '/project/vitest.config.js',
-        '/project/vitest.config.mjs',
-        '/project/vite.config.ts',
-        '/project/vite.config.js',
-        '/project/vite.config.mjs',
+        ...exts.map((ext) => `/project/vitest.mcp.config.${ext}`),
+        ...exts.map((ext) => `/project/vitest.config.${ext}`),
+        ...exts.map((ext) => `/project/vite.config.${ext}`),
       ]);
+    });
+  });
+
+  describe('findMcpVitestConfig', () => {
+    it('only looks for MCP-specific configs', async () => {
+      vi.mocked(fileExists).mockImplementation(async (path) => path === '/project/vitest.mcp.config.mts');
+      await expect(findMcpVitestConfig('/project')).resolves.toBe('/project/vitest.mcp.config.mts');
+    });
+
+    it('returns null when only a regular config exists', async () => {
+      vi.mocked(fileExists).mockImplementation(async (path) => path === '/project/vitest.config.ts');
+      await expect(findMcpVitestConfig('/project')).resolves.toBeNull();
     });
   });
 

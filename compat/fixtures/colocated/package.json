@@ -1,0 +1,5 @@
+{
+  "name": "compat-fixture-colocated",
+  "private": true,
+  "type": "module"
+}

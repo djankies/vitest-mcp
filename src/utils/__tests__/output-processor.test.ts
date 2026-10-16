@@ -215,4 +215,64 @@ describe('VitestOutputProcessor', () => {
       expect(processed.executionTimeMs).toBe(2.5);
     });
   });
+
+  describe('report file and error reporting', () => {
+    const base = { command: 'vitest run', success: true, stderr: '', duration: 1 };
+
+    it('prefers the report file over stdout', async () => {
+      const processed = await processor.process(
+        {
+          ...base,
+          exitCode: 0,
+          stdout: 'JSON report written to .vitest/json/output.json',
+          report: '{"numTotalTests":4,"numPassedTests":4,"numFailedTests":0,"success":true,"testResults":[]}',
+        },
+        'summary',
+        {} as TestResultContext
+      );
+      expect(processed.testSummary).toMatchObject({ totalTests: 4, passed: 4 });
+    });
+
+    it('reports a test file that failed to load', async () => {
+      const report = JSON.stringify({
+        numTotalTests: 0,
+        numPassedTests: 0,
+        numFailedTests: 0,
+        success: false,
+        testResults: [{
+          name: '/project/src/broken.test.ts',
+          status: 'failed',
+          message: 'Failed to load url ./missing (resolved id: ./missing) in /project/src/broken.test.ts. Does the file exist?',
+          assertionResults: [],
+        }],
+      });
+
+      const processed = await processor.process({ ...base, exitCode: 1, stdout: '', report }, 'detailed', {} as TestResultContext);
+
+      expect(processed.success).toBe(false);
+      expect(processed.testResults?.failedTests?.[0]).toMatchObject({
+        file: '/project/src/broken.test.ts',
+        tests: [expect.objectContaining({ testName: '(test file failed to run)', message: expect.stringContaining('./missing') })],
+      });
+    });
+
+    it('includes stderr when vitest fails without reporting a failing test', async () => {
+      const processed = await processor.process(
+        { ...base, exitCode: 1, stdout: '', stderr: 'Error: No projects matched the filter "api".' },
+        'summary',
+        {} as TestResultContext
+      );
+      expect(processed.error).toBe('Error: No projects matched the filter "api".');
+      expect(processed.summary).toBe('❌ Error: No projects matched the filter "api".');
+    });
+
+    it('does not add an error field to successful runs', async () => {
+      const processed = await processor.process(
+        { ...base, exitCode: 0, stdout: '', stderr: 'some warning', report: '{"numTotalTests":1,"numPassedTests":1,"numFailedTests":0,"success":true,"testResults":[]}' },
+        'summary',
+        {} as TestResultContext
+      );
+      expect(processed.error).toBeUndefined();
+    });
+  });
 });

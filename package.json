@@ -8,19 +8,19 @@
     "vitest-mcp": "dist/index.js"
   },
   "scripts": {
-    "build": "tsc && chmod +x dist/index.js && mkdir -p dist/resources && cp src/resources/*.md dist/resources/ 2>/dev/null || true",
+    "build": "tsc && node scripts/postbuild.mjs",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
-    "lint": "eslint src --ext .ts",
+    "lint": "eslint src --max-warnings=0",
     "test": "vitest run",
     "test:unit": "vitest run src/tools",
-    "test:integration": "vitest run src/__tests__/integration",
     "test-coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "ci": "npm run typecheck && npm run lint && npm run test && npm run build",
     "publish:beta": "npm run ci && npm version prerelease --preid=beta && git push origin develop --tags && npm publish --tag beta",
     "publish:release": "npm run ci && npm version patch && git push origin develop --tags && npm publish",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:compat": "npm run build && node compat/run-compat.mjs"
   },
   "keywords": [
     "mcp",
@@ -39,31 +39,36 @@
     "access": "public"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.17.1"
+    "@modelcontextprotocol/sdk": "^1.32.1"
   },
   "devDependencies": {
-    "@eslint/js": "^9.0.0",
-    "@types/node": "^24.2.0",
-    "@typescript-eslint/eslint-plugin": "^8.0.0",
-    "@typescript-eslint/parser": "^8.0.0",
-    "@vitest/coverage-v8": "^3.2.4",
-    "dotenv": "^17.2.1",
-    "eslint": "^9.0.0",
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^22.20.5",
+    "@typescript-eslint/eslint-plugin": "^8.71.2",
+    "@typescript-eslint/parser": "^8.71.2",
+    "@vitest/coverage-v8": "^5.0.5",
+    "dotenv": "^17.4.2",
+    "eslint": "^9.39.5",
     "husky": "^9.1.7",
-    "jsdom": "^26.1.0",
-    "lint-staged": "^16.1.4",
-    "typescript": "^5.0.0",
-    "vitest": "^3.2.4"
+    "jsdom": "^29.1.1",
+    "lint-staged": "^16.4.0",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.5"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.12.0"
   },
   "peerDependencies": {
-    "vitest": ">=0.34.0"
+    "vitest": "^3.0.0 || ^4.0.0 || ^5.0.0"
   },
   "peerDependenciesMeta": {
     "vitest": {
-      "optional": false
+      "optional": true
     }
-  }
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "CLAUDE.example.md"
+  ]
 }

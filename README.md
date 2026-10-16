@@ -290,13 +290,15 @@ Or prepend your message with `vitest-mcp:` to ensure the tools are used:
 
 ## 📋 Requirements
 
-- **Node.js**: 18+ 🟢
-- **Vitest**: 0.34.0+ 🧪
-- **Coverage**: `@vitest/coverage-v8` (for coverage analysis) 📊
+- **Node.js**: 22.12+ 🟢
+- **Vitest**: 3.x, 4.x or 5.x installed in your project 🧪 (each major is tested in CI against real projects)
+- **Coverage**: `@vitest/coverage-v8` or `@vitest/coverage-istanbul`, same major version as Vitest (for coverage analysis) 📊
 
 ```bash
-npm install --save-dev vitest@latest @vitest/coverage-v8@latest
+npm install --save-dev vitest @vitest/coverage-v8
 ```
+
+The server always runs **your project's own Vitest** (resolved from `node_modules`, including hoisted monorepo installs). It never downloads Vitest or runs commands through a shell.
 
 ## 🧰 Tools
 
@@ -316,7 +318,7 @@ List test files in your project. Helps keep LLMs from slipping back to using com
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `directory` | string | Yes | Directory to search for test files |
+| `path` | string | No | Directory to search for test files (defaults to the project root) |
 
 ---
 
@@ -341,13 +343,14 @@ Analyze test coverage with gap insights.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `target` | string | Yes | File or directory to analyze coverage for |
+| `target` | string | Yes | Source file or directory to analyze coverage for |
 | `format` | string | No | Output format: "summary" (overview only) or "detailed" (includes line-by-line coverage) |
-| `exclude` | string[] | No | Patterns to exclude from coverage (e.g., ["**/*.stories.*"]) |
+| `project` | string | No | Only use tests from this Vitest project (e.g. `"unit"`) |
+| `exclude` | string[] | No | Patterns to exclude from coverage (e.g., ["**/*.stories.*"]). Replaces your config's `coverage.exclude` for this run |
 
 > **Note**: Coverage thresholds should be configured in your `vitest.config.ts` file, not via MCP parameters.
 
-Automatically excludes test utilities, mocks, stories, and e2e files.
+The tool runs every test that imports the target (`vitest related`), wherever your tests live (`./test`, `__tests__`, next to the source...), and reports coverage for the target only, including files that no test touches. Reports are written to a temporary directory, so your own `coverage/` output is left alone. Test utilities, mocks, stories, and e2e files are excluded automatically.
 
 ## 🔄 Multi-Repository Support
 
@@ -404,34 +407,24 @@ Encourage claude or your ide to use the tools correctly: [CLAUDE.example.md](./C
 
 ### Vitest Configuration Priority
 
-The MCP server automatically detects and uses Vitest configuration files in the following priority order:
-
-1. `vitest.mcp.config.ts` - **MCP-specific configuration** (highest priority) 🔝
-2. `vitest.config.ts`
-3. `vitest.config.js`
-4. `vitest.config.mjs`
-5. `vite.config.ts` (if it contains test configuration)
-6. `vite.config.js` (if it contains test configuration)
-7. `vite.config.mjs` (if it contains test configuration)
+If your project has a `vitest.mcp.config.*` file (`.ts`, `.mts`, `.cts`, `.js`, `.mjs` or `.cjs`), the MCP server passes it to Vitest with `--config`. Otherwise Vitest finds your normal `vitest.config.*` / `vite.config.*` as usual.
 
 This allows you to have a dedicated MCP-specific configuration that won't interfere with your regular development workflow:
 
 ```typescript
 // vitest.mcp.config.ts
-import { defineConfig } from 'vitest/config';
+import { defineConfig, mergeConfig } from 'vitest/config';
+import baseConfig from './vitest.config';
 
-export default defineConfig({
+export default mergeConfig(baseConfig, defineConfig({
   test: {
-    // MCP-specific settings
-    reporters: ['json'],
-    coverage: {
-      enabled: true,
-      provider: 'v8',
-      reporter: ['json', 'html'],
-    },
+    // MCP-specific settings, e.g. a longer timeout for AI-driven runs
+    testTimeout: 30000,
   },
-});
+}));
 ```
+
+Reporters, coverage output and console capture are set by the server on the command line, so you don't need to configure them.
 
 ### Coverage Thresholds
 
@@ -521,11 +514,11 @@ VITEST_MCP_DEV_MODE=true
 
 ## 🔧 Troubleshooting
 
-**"Vitest not found"** - Install: `npm install --save-dev vitest@latest`
+**"Vitest not found"** - Install it in the project you set as root: `npm install --save-dev vitest`
 
-**"Coverage provider not found"** - Install: `npm install --save-dev @vitest/coverage-v8@latest` 📊
+**"Coverage provider not found"** / **"does not match Vitest"** - Install the provider matching your Vitest major, e.g. `npm install --save-dev @vitest/coverage-v8@4` for Vitest 4 📊
 
-**Hook issues** - Bypass with: `VITEST_HOOK_BYPASS=1 npm test`
+**Hook issues** - Bypass with: `BYPASS_VITEST_HOOK=1 npm test`
 
 **Found a bug?** Submit a bug report, please, and thank you.
 
